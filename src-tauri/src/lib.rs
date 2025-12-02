@@ -1420,9 +1420,18 @@ fn detect_cli_agents(state: State<AppState>) -> Vec<AgentStatus> {
         docs_url: "https://help.router-for.me/agent-client/amp-cli.html".to_string(),
     });
     
-    // 6. OpenCode - uses environment variables or config
+    // 6. OpenCode - uses opencode.json config file with custom provider
     let opencode_installed = which_exists("opencode");
-    let opencode_configured = check_env_configured("OPENAI_BASE_URL", &format!("{}/v1", endpoint));
+    // Check for global opencode.json in ~/.config/opencode/opencode.json
+    let opencode_global_config = home.join(".config/opencode/opencode.json");
+    let opencode_configured = if opencode_global_config.exists() {
+        // Check if our proxypal provider is configured
+        std::fs::read_to_string(&opencode_global_config)
+            .map(|content| content.contains("proxypal") && content.contains(&endpoint))
+            .unwrap_or(false)
+    } else {
+        false
+    };
     
     agents.push(AgentStatus {
         id: "opencode".to_string(),
@@ -1430,10 +1439,10 @@ fn detect_cli_agents(state: State<AppState>) -> Vec<AgentStatus> {
         description: "Terminal-based AI coding assistant".to_string(),
         installed: opencode_installed,
         configured: opencode_configured,
-        config_type: "env".to_string(),
-        config_path: None,
+        config_type: "config".to_string(),
+        config_path: Some(opencode_global_config.to_string_lossy().to_string()),
         logo: "/logos/opencode.svg".to_string(),
-        docs_url: "https://github.com/opencode-ai/opencode".to_string(),
+        docs_url: "https://opencode.ai/docs/providers/".to_string(),
     });
     
     agents
@@ -1628,17 +1637,72 @@ export AMP_URL="{}"
         },
         
         "opencode" => {
-            // Generate shell config for OpenCode
-            let shell_config = format!(r#"# ProxyPal - OpenCode Configuration
-export OPENAI_BASE_URL="{}"
-export OPENAI_API_KEY="sk-proxypal"
-"#, endpoint_v1);
+            // OpenCode uses opencode.json config file with custom provider
+            // See: https://opencode.ai/docs/providers/#custom-provider
+            let config_dir = home.join(".config/opencode");
+            std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+            let config_path = config_dir.join("opencode.json");
+            
+            // Create or update opencode.json with proxypal provider
+            let opencode_config = serde_json::json!({
+                "$schema": "https://opencode.ai/config.json",
+                "provider": {
+                    "proxypal": {
+                        "npm": "@ai-sdk/openai-compatible",
+                        "name": "ProxyPal (Local Proxy)",
+                        "options": {
+                            "baseURL": endpoint_v1,
+                            "apiKey": "sk-proxypal"
+                        },
+                        "models": {
+                            "claude-3.5-sonnet": {
+                                "name": "Claude 3.5 Sonnet (via ProxyPal)"
+                            },
+                            "claude-3.5-haiku": {
+                                "name": "Claude 3.5 Haiku (via ProxyPal)"
+                            },
+                            "gpt-4o": {
+                                "name": "GPT-4o (via ProxyPal)"
+                            },
+                            "gemini-2.0-flash": {
+                                "name": "Gemini 2.0 Flash (via ProxyPal)"
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // If config exists, merge with existing
+            let final_config = if config_path.exists() {
+                if let Ok(existing) = std::fs::read_to_string(&config_path) {
+                    if let Ok(mut existing_json) = serde_json::from_str::<serde_json::Value>(&existing) {
+                        // Merge provider into existing config
+                        if let Some(providers) = existing_json.get_mut("provider") {
+                            if let Some(obj) = providers.as_object_mut() {
+                                obj.insert("proxypal".to_string(), opencode_config["provider"]["proxypal"].clone());
+                            }
+                        } else {
+                            existing_json["provider"] = opencode_config["provider"].clone();
+                        }
+                        existing_json
+                    } else {
+                        opencode_config
+                    }
+                } else {
+                    opencode_config
+                }
+            } else {
+                opencode_config
+            };
+            
+            let config_str = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
+            std::fs::write(&config_path, &config_str).map_err(|e| e.to_string())?;
             
             Ok(serde_json::json!({
                 "success": true,
-                "configType": "env",
-                "shellConfig": shell_config,
-                "instructions": "Add the above to your ~/.bashrc, ~/.zshrc, or shell config file, then restart your terminal."
+                "configType": "config",
+                "configPath": config_path.to_string_lossy(),
+                "instructions": "ProxyPal provider added to OpenCode. Run 'opencode' and use /models to select a ProxyPal model (e.g., proxypal/claude-3.5-sonnet)."
             }))
         },
         
