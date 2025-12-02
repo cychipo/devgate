@@ -107,23 +107,27 @@ export function UsageSummary() {
 
   // Update uptime every second when proxy is running
   createEffect(() => {
-    if (proxyStatus().running) {
-      const interval = setInterval(() => {
-        setUptime(formatUptime(proxyStartTime()));
-      }, 1000);
-      onCleanup(() => clearInterval(interval));
-    } else {
+    if (!proxyStatus().running) {
       setUptime("—");
+      return;
     }
+
+    // Update immediately
+    setUptime(formatUptime(proxyStartTime()));
+
+    const interval = setInterval(() => {
+      setUptime(formatUptime(proxyStartTime()));
+    }, 1000);
+    onCleanup(() => clearInterval(interval));
   });
 
-  // Fetch stats on mount and every 10 seconds
+  // Fetch stats on mount only - no auto-refresh to reduce API spam
   createEffect(() => {
-    fetchStats();
-
     if (proxyStatus().running) {
-      const interval = setInterval(fetchStats, 10000);
-      onCleanup(() => clearInterval(interval));
+      fetchStats();
+    } else {
+      setStats(null);
+      setLoading(false);
     }
   });
 

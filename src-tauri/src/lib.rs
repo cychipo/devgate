@@ -2403,6 +2403,427 @@ async fn delete_openai_compatible_provider(state: State<'_, AppState>, index: us
     set_openai_compatible_providers(state, providers).await
 }
 
+// ============================================
+// Auth Files Management - via Management API
+// ============================================
+
+// Auth file entry from Management API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthFile {
+    pub id: String,
+    pub name: String,
+    pub provider: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_message: Option<String>,
+    #[serde(default)]
+    pub disabled: bool,
+    #[serde(default)]
+    pub unavailable: bool,
+    #[serde(default)]
+    pub runtime_only: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub modtime: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_refresh: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub success_count: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_count: Option<u64>,
+}
+
+// Get all auth files
+#[tauri::command]
+async fn get_auth_files(state: State<'_, AppState>) -> Result<Vec<AuthFile>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "auth-files");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch auth files: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
+    // Management API returns { "files": [...] } or just an array
+    let files_array = if let Some(files) = json.get("files") {
+        files.clone()
+    } else if json.is_array() {
+        json
+    } else {
+        return Ok(Vec::new());
+    };
+    
+    // Convert snake_case from API to camelCase for frontend
+    let json_str = serde_json::to_string(&files_array).map_err(|e| e.to_string())?;
+    let converted = json_str
+        .replace("\"status_message\"", "\"statusMessage\"")
+        .replace("\"runtime_only\"", "\"runtimeOnly\"")
+        .replace("\"account_type\"", "\"accountType\"")
+        .replace("\"created_at\"", "\"createdAt\"")
+        .replace("\"updated_at\"", "\"updatedAt\"")
+        .replace("\"last_refresh\"", "\"lastRefresh\"")
+        .replace("\"success_count\"", "\"successCount\"")
+        .replace("\"failure_count\"", "\"failureCount\"");
+    
+    serde_json::from_str(&converted).map_err(|e| e.to_string())
+}
+
+// Upload auth file
+#[tauri::command]
+async fn upload_auth_file(state: State<'_, AppState>, file_path: String, provider: String) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "auth-files");
+    
+    // Read file content
+    let content = std::fs::read(&file_path)
+        .map_err(|e| format!("Failed to read file: {}", e))?;
+    
+    // Get filename from path
+    let filename = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("auth.json")
+        .to_string();
+    
+    let client = build_management_client();
+    
+    // Create multipart form
+    let part = reqwest::multipart::Part::bytes(content)
+        .file_name(filename.clone())
+        .mime_str("application/json")
+        .map_err(|e| e.to_string())?;
+    
+    let form = reqwest::multipart::Form::new()
+        .text("provider", provider)
+        .text("filename", filename)
+        .part("file", part);
+    
+    let response = client
+        .post(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to upload auth file: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to upload auth file: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Delete auth file
+#[tauri::command]
+async fn delete_auth_file(state: State<'_, AppState>, file_id: String) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = format!("{}/{}", get_management_url(port, "auth-files"), file_id);
+    
+    let client = build_management_client();
+    let response = client
+        .delete(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to delete auth file: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to delete auth file: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Toggle auth file enabled/disabled
+#[tauri::command]
+async fn toggle_auth_file(state: State<'_, AppState>, file_id: String, disabled: bool) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = format!("{}/{}/disabled", get_management_url(port, "auth-files"), file_id);
+    
+    let client = build_management_client();
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&serde_json::json!({ "value": disabled }))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to toggle auth file: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to toggle auth file: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Download auth file - returns path to temp file
+#[tauri::command]
+async fn download_auth_file(state: State<'_, AppState>, file_id: String, filename: String) -> Result<String, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = format!("{}?id={}", get_management_url(port, "auth-files/download"), file_id);
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download auth file: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to download auth file: {} - {}", status, text));
+    }
+    
+    let bytes = response.bytes().await.map_err(|e| e.to_string())?;
+    
+    // Save to downloads directory
+    let downloads_dir = dirs::download_dir()
+        .unwrap_or_else(|| dirs::home_dir().unwrap_or_default());
+    
+    let dest_path = downloads_dir.join(&filename);
+    std::fs::write(&dest_path, &bytes)
+        .map_err(|e| format!("Failed to save file: {}", e))?;
+    
+    Ok(dest_path.to_string_lossy().to_string())
+}
+
+// Delete all auth files
+#[tauri::command]
+async fn delete_all_auth_files(state: State<'_, AppState>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "auth-files");
+    
+    let client = build_management_client();
+    let response = client
+        .delete(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to delete all auth files: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to delete all auth files: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// ============================================================================
+// Log Viewer Commands
+// ============================================================================
+
+// Log entry structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEntry {
+    pub timestamp: String,
+    pub level: String,
+    pub message: String,
+}
+
+// API response structure for logs
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct LogsApiResponse {
+    #[serde(default)]
+    latest_timestamp: Option<i64>,
+    #[serde(default)]
+    line_count: Option<u32>,
+    #[serde(default)]
+    lines: Vec<String>,
+}
+
+// Get logs from the proxy server
+#[tauri::command]
+async fn get_logs(state: State<'_, AppState>, lines: Option<u32>) -> Result<Vec<LogEntry>, String> {
+    let port = state.config.lock().unwrap().port;
+    let lines_param = lines.unwrap_or(500);
+    let url = format!("{}?lines={}", get_management_url(port, "logs"), lines_param);
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get logs: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to get logs: {} - {}", status, text));
+    }
+    
+    // Parse JSON response
+    let api_response: LogsApiResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse logs response: {}", e))?;
+    
+    // Parse each line into a LogEntry
+    let entries: Vec<LogEntry> = api_response
+        .lines
+        .iter()
+        .filter(|line| !line.is_empty())
+        .map(|line| parse_log_line(line))
+        .collect();
+    
+    Ok(entries)
+}
+
+// Parse a log line into a LogEntry struct
+// Expected formats from CLIProxyAPI:
+// - "[2025-12-02 22:12:52] [info] [gin_logger.go:58] message"
+// - "[2025-12-02 22:12:52] [info] message"  
+// - "2024-01-15T10:30:45.123Z [INFO] message"
+fn parse_log_line(line: &str) -> LogEntry {
+    let line = line.trim();
+    
+    // Format: [timestamp] [level] [source] message
+    // or: [timestamp] [level] message
+    if line.starts_with('[') {
+        let mut parts = Vec::new();
+        let mut current_start = 0;
+        let mut in_bracket = false;
+        
+        for (i, c) in line.char_indices() {
+            if c == '[' && !in_bracket {
+                in_bracket = true;
+                current_start = i + 1;
+            } else if c == ']' && in_bracket {
+                in_bracket = false;
+                parts.push(&line[current_start..i]);
+                current_start = i + 1;
+            }
+        }
+        
+        // Get the message (everything after the last bracket)
+        let message_start = line.rfind(']').map(|i| i + 1).unwrap_or(0);
+        let message = line[message_start..].trim();
+        
+        if parts.len() >= 2 {
+            let timestamp = parts[0].to_string();
+            let level = parts[1].to_uppercase();
+            
+            return LogEntry {
+                timestamp,
+                level: normalize_log_level(&level),
+                message: message.to_string(),
+            };
+        }
+    }
+    
+    // Try ISO timestamp format: "2024-01-15T10:30:45.123Z [INFO] message"
+    if line.len() > 20 && (line.chars().nth(4) == Some('-') || line.chars().nth(10) == Some('T')) {
+        if let Some(bracket_start) = line.find('[') {
+            if let Some(bracket_end) = line[bracket_start..].find(']') {
+                let timestamp = line[..bracket_start].trim().to_string();
+                let level = line[bracket_start + 1..bracket_start + bracket_end].to_string();
+                let message = line[bracket_start + bracket_end + 1..].trim().to_string();
+                
+                return LogEntry {
+                    timestamp,
+                    level: normalize_log_level(&level),
+                    message,
+                };
+            }
+        }
+    }
+    
+    // Try "LEVEL: message" format
+    for level in &["ERROR", "WARN", "INFO", "DEBUG", "TRACE"] {
+        if line.to_uppercase().starts_with(level) {
+            let rest = &line[level.len()..];
+            if rest.starts_with(':') || rest.starts_with(' ') {
+                return LogEntry {
+                    timestamp: String::new(),
+                    level: level.to_string(),
+                    message: rest.trim_start_matches(|c| c == ':' || c == ' ').to_string(),
+                };
+            }
+        }
+    }
+    
+    // Default: plain text as INFO
+    LogEntry {
+        timestamp: String::new(),
+        level: "INFO".to_string(),
+        message: line.to_string(),
+    }
+}
+
+// Normalize log level to standard format
+fn normalize_log_level(level: &str) -> String {
+    match level.to_uppercase().as_str() {
+        "ERROR" | "ERR" | "E" => "ERROR".to_string(),
+        "WARN" | "WARNING" | "W" => "WARN".to_string(),
+        "INFO" | "I" => "INFO".to_string(),
+        "DEBUG" | "DBG" | "D" => "DEBUG".to_string(),
+        "TRACE" | "T" => "TRACE".to_string(),
+        _ => level.to_uppercase(),
+    }
+}
+
+// Clear all logs
+#[tauri::command]
+async fn clear_logs(state: State<'_, AppState>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "logs");
+    
+    let client = build_management_client();
+    let response = client
+        .delete(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to clear logs: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to clear logs: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
 // Get setup instructions for a specific tool
 #[tauri::command]
 fn get_tool_setup_info(tool_id: String, state: State<AppState>) -> Result<serde_json::Value, String> {
@@ -2515,6 +2936,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             // Handle deep links when app is already running
             let urls: Vec<url::Url> = args
@@ -2596,6 +3018,16 @@ pub fn run() {
             set_openai_compatible_providers,
             add_openai_compatible_provider,
             delete_openai_compatible_provider,
+            // Auth Files Management
+            get_auth_files,
+            upload_auth_file,
+            delete_auth_file,
+            toggle_auth_file,
+            download_auth_file,
+            delete_all_auth_files,
+            // Log Viewer
+            get_logs,
+            clear_logs,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

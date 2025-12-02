@@ -73,6 +73,28 @@ export function CommandPalette() {
       },
     },
     {
+      id: "go-auth-files",
+      label: "Go to Auth Files",
+      shortcut: "⌘3",
+      icon: "file",
+      category: "navigation",
+      action: () => {
+        setCurrentPage("auth-files");
+        setIsOpen(false);
+      },
+    },
+    {
+      id: "go-logs",
+      label: "Go to Logs",
+      shortcut: "⌘4",
+      icon: "logs",
+      category: "navigation",
+      action: () => {
+        setCurrentPage("logs");
+        setIsOpen(false);
+      },
+    },
+    {
       id: "go-settings",
       label: "Go to Settings",
       shortcut: "⌘,",
@@ -138,6 +160,14 @@ export function CommandPalette() {
         case "2":
           e.preventDefault();
           setCurrentPage("api-keys");
+          break;
+        case "3":
+          e.preventDefault();
+          setCurrentPage("auth-files");
+          break;
+        case "4":
+          e.preventDefault();
+          setCurrentPage("logs");
           break;
       }
     }
@@ -290,6 +320,38 @@ export function CommandPalette() {
               stroke-linejoin="round"
               stroke-width="2"
               d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+            />
+          </svg>
+        );
+      case "file":
+        return (
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
+          </svg>
+        );
+      case "logs":
+        return (
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h7"
             />
           </svg>
         );

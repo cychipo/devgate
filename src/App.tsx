@@ -1,5 +1,12 @@
 import { Match, Switch, onMount, Show } from "solid-js";
-import { WelcomePage, DashboardPage, SettingsPage, ApiKeysPage } from "./pages";
+import {
+  WelcomePage,
+  DashboardPage,
+  SettingsPage,
+  ApiKeysPage,
+  AuthFilesPage,
+  LogViewerPage,
+} from "./pages";
 import { ToastContainer } from "./components/ui";
 import { CommandPalette } from "./components/CommandPalette";
 import { appStore } from "./stores/app";
@@ -40,6 +47,12 @@ function App() {
           </Match>
           <Match when={currentPage() === "api-keys"}>
             <ApiKeysPage />
+          </Match>
+          <Match when={currentPage() === "auth-files"}>
+            <AuthFilesPage />
+          </Match>
+          <Match when={currentPage() === "logs"}>
+            <LogViewerPage />
           </Match>
         </Switch>
       </Show>

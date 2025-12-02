@@ -1,4 +1,4 @@
-import { createSignal, onMount, onCleanup, Show } from "solid-js";
+import { createSignal, createEffect, onMount, onCleanup, Show } from "solid-js";
 import {
   getRequestHistory,
   onRequestLog,
@@ -18,24 +18,25 @@ function formatTokens(tokens: number): string {
   return tokens.toString();
 }
 
-// Animated number component
+// Animated number component - uses createEffect instead of polling
 function AnimatedValue(props: {
   value: number;
   format: (n: number) => string;
   prefix?: string;
 }) {
-  const [displayValue, setDisplayValue] = createSignal(0);
+  const [displayValue, setDisplayValue] = createSignal(props.value);
 
-  // Animate when value changes
-  let animationFrame: number;
-
-  const animateTo = (target: number) => {
+  // Animate when value changes using createEffect
+  createEffect(() => {
+    const target = props.value;
     const current = displayValue();
+
     if (current === target) return;
 
     const duration = 600;
     const startTime = performance.now();
     const startValue = current;
+    let animationFrame: number;
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
@@ -51,23 +52,8 @@ function AnimatedValue(props: {
     };
 
     animationFrame = requestAnimationFrame(animate);
-  };
 
-  onMount(() => {
-    animateTo(props.value);
-  });
-
-  // Watch for value changes
-  let prevValue = props.value;
-  onMount(() => {
-    const interval = setInterval(() => {
-      if (props.value !== prevValue) {
-        prevValue = props.value;
-        animateTo(props.value);
-      }
-    }, 100);
     onCleanup(() => {
-      clearInterval(interval);
       if (animationFrame) cancelAnimationFrame(animationFrame);
     });
   });
