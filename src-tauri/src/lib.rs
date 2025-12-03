@@ -1005,6 +1005,37 @@ async fn disconnect_provider(
     state: State<'_, AppState>,
     provider: String,
 ) -> Result<AuthStatus, String> {
+    // Delete credential files from ~/.cli-proxy-api/ for this provider
+    let auth_dir = dirs::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".cli-proxy-api");
+    
+    if auth_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&auth_dir) {
+            for entry in entries.flatten() {
+                let filename = entry.file_name().to_string_lossy().to_lowercase();
+                
+                // Match credential files by provider prefix
+                let should_delete = match provider.as_str() {
+                    "claude" => filename.starts_with("claude-") || filename.starts_with("anthropic-"),
+                    "openai" => filename.starts_with("codex-"),
+                    "gemini" => filename.starts_with("gemini-"),
+                    "qwen" => filename.starts_with("qwen-"),
+                    "iflow" => filename.starts_with("iflow-"),
+                    "vertex" => filename.starts_with("vertex-"),
+                    "antigravity" => filename.starts_with("antigravity-"),
+                    _ => false,
+                };
+                
+                if should_delete && filename.ends_with(".json") {
+                    if let Err(e) = std::fs::remove_file(entry.path()) {
+                        eprintln!("Failed to delete credential file {:?}: {}", entry.path(), e);
+                    }
+                }
+            }
+        }
+    }
+    
     let mut auth = state.auth_status.lock().unwrap();
 
     match provider.as_str() {
@@ -1590,13 +1621,55 @@ fn detect_cli_agents(state: State<AppState>) -> Vec<AgentStatus> {
     agents
 }
 
-// Helper to check if a command exists in PATH
+// Helper to check if a command exists by checking common installation paths
+// Note: Using `which` command doesn't work in production builds (sandboxed macOS app)
+// so we check common binary locations directly
 fn which_exists(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    let home = dirs::home_dir().unwrap_or_default();
+    
+    // Common binary installation paths (static)
+    let mut paths = vec![
+        // Homebrew (Apple Silicon)
+        std::path::PathBuf::from("/opt/homebrew/bin"),
+        // Homebrew (Intel) / system
+        std::path::PathBuf::from("/usr/local/bin"),
+        // System binaries
+        std::path::PathBuf::from("/usr/bin"),
+        // Cargo (Rust)
+        home.join(".cargo/bin"),
+        // npm global (default)
+        home.join(".npm-global/bin"),
+        // npm global (alternative)
+        std::path::PathBuf::from("/usr/local/lib/node_modules/.bin"),
+        // Local bin
+        home.join(".local/bin"),
+        // Go binaries
+        home.join("go/bin"),
+        // Bun binaries
+        home.join(".bun/bin"),
+    ];
+    
+    // Add NVM node versions - scan for installed node versions
+    let nvm_dir = home.join(".nvm/versions/node");
+    if nvm_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+            for entry in entries.flatten() {
+                let bin_path = entry.path().join("bin");
+                if bin_path.exists() {
+                    paths.push(bin_path);
+                }
+            }
+        }
+    }
+    
+    // Check all paths
+    for path in &paths {
+        if path.join(cmd).exists() {
+            return true;
+        }
+    }
+    
+    false
 }
 
 // Helper to check if env var is set to expected value
