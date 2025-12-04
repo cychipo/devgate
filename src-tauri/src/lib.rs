@@ -102,6 +102,8 @@ pub struct AppConfig {
     pub amp_openai_provider: Option<AmpOpenAIProvider>,
     #[serde(default)]
     pub amp_routing_mode: String, // "mappings" or "openai" - default is "mappings"
+    #[serde(default)]
+    pub copilot: CopilotConfig,
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -145,6 +147,62 @@ pub struct AmpOpenAIProvider {
     pub models: Vec<AmpOpenAIModel>,
 }
 
+// GitHub Copilot proxy configuration (via copilot-api)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "default_copilot_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub account_type: String, // "individual", "business", "enterprise"
+    #[serde(default)]
+    pub github_token: String, // Optional pre-authenticated token
+    #[serde(default)]
+    pub rate_limit: Option<u16>, // Seconds between requests
+    #[serde(default)]
+    pub rate_limit_wait: bool, // Wait instead of error on rate limit
+}
+
+fn default_copilot_port() -> u16 {
+    4141
+}
+
+impl Default for CopilotConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            port: 4141,
+            account_type: "individual".to_string(),
+            github_token: String::new(),
+            rate_limit: None,
+            rate_limit_wait: false,
+        }
+    }
+}
+
+// Copilot proxy status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CopilotStatus {
+    pub running: bool,
+    pub port: u16,
+    pub endpoint: String,
+    pub authenticated: bool,
+}
+
+impl Default for CopilotStatus {
+    fn default() -> Self {
+        Self {
+            running: false,
+            port: 4141,
+            endpoint: "http://localhost:4141".to_string(),
+            authenticated: false,
+        }
+    }
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -164,6 +222,7 @@ impl Default for AppConfig {
             amp_model_mappings: Vec::new(),
             amp_openai_provider: None,
             amp_routing_mode: "mappings".to_string(),
+            copilot: CopilotConfig::default(),
         }
     }
 }
@@ -223,6 +282,8 @@ pub struct AppState {
     pub config: Mutex<AppConfig>,
     pub pending_oauth: Mutex<Option<OAuthState>>,
     pub proxy_process: Mutex<Option<CommandChild>>,
+    pub copilot_status: Mutex<CopilotStatus>,
+    pub copilot_process: Mutex<Option<CommandChild>>,
 }
 
 impl Default for AppState {
@@ -233,6 +294,8 @@ impl Default for AppState {
             config: Mutex::new(AppConfig::default()),
             pending_oauth: Mutex::new(None),
             proxy_process: Mutex::new(None),
+            copilot_status: Mutex::new(CopilotStatus::default()),
+            copilot_process: Mutex::new(None),
         }
     }
 }
@@ -397,13 +460,41 @@ async fn start_proxy(
 ) -> Result<ProxyStatus, String> {
     let config = state.config.lock().unwrap().clone();
     
-    // Check if already running
+    // Check if already running (according to our tracked state)
     {
         let status = state.proxy_status.lock().unwrap();
         if status.running {
             return Ok(status.clone());
         }
     }
+
+    // Kill any existing tracked proxy process first
+    {
+        let mut process = state.proxy_process.lock().unwrap();
+        if let Some(child) = process.take() {
+            let _ = child.kill(); // Ignore errors, process might already be dead
+        }
+    }
+
+    // Kill any external process using our port (handles orphaned processes from previous runs)
+    let port = config.port;
+    #[cfg(unix)]
+    {
+        // Use lsof to find and kill any process using the port
+        let _ = std::process::Command::new("sh")
+            .args(["-c", &format!("lsof -ti :{} | xargs -r kill -9 2>/dev/null", port)])
+            .output();
+    }
+    #[cfg(windows)]
+    {
+        // On Windows, use netstat and taskkill
+        let _ = std::process::Command::new("cmd")
+            .args(["/C", &format!("for /f \"tokens=5\" %a in ('netstat -aon ^| findstr :{} ^| findstr LISTENING') do taskkill /F /PID %a 2>nul", port)])
+            .output();
+    }
+
+    // Small delay to let port be released
+    tokio::time::sleep(tokio::time::Duration::from_millis(300)).await;
 
     // Create config directory and config file for CLIProxyAPI
     let config_dir = dirs::config_dir()
@@ -445,31 +536,113 @@ async fn start_proxy(
         mappings
     };
     
-    // Build openai-compatibility section for custom providers
+    // Build openai-compatibility section combining custom provider and copilot
     // This defines OpenAI-compatible providers with custom base URLs and model aliases
-    // The aliases can then be used as targets in amp model-mappings
-    let openai_compat_section = if let Some(ref provider) = config.amp_openai_provider {
+    let mut openai_compat_entries = Vec::new();
+    
+    // Add custom provider if configured
+    if let Some(ref provider) = config.amp_openai_provider {
         if !provider.name.is_empty() && !provider.base_url.is_empty() && !provider.api_key.is_empty() {
-            let mut section = String::from("# OpenAI-compatible provider (custom endpoint)\nopenai-compatibility:\n");
-            section.push_str(&format!("  - name: \"{}\"\n", provider.name));
-            section.push_str(&format!("    base-url: \"{}\"\n", provider.base_url));
-            section.push_str("    api-key-entries:\n");
-            section.push_str(&format!("      - api-key: \"{}\"\n", provider.api_key));
+            let mut entry = String::from("  # Custom OpenAI-compatible provider\n");
+            entry.push_str(&format!("  - name: \"{}\"\n", provider.name));
+            entry.push_str(&format!("    base-url: \"{}\"\n", provider.base_url));
+            entry.push_str("    api-key-entries:\n");
+            entry.push_str(&format!("      - api-key: \"{}\"\n", provider.api_key));
             
             if !provider.models.is_empty() {
-                section.push_str("    models:\n");
+                entry.push_str("    models:\n");
                 for model in &provider.models {
-                    section.push_str(&format!("      - name: \"{}\"\n", model.name));
-                    if !model.alias.is_empty() {
-                        section.push_str(&format!("        alias: \"{}\"\n", model.alias));
-                    }
+                    entry.push_str(&format!("      - alias: \"{}\"\n", model.alias));
+                    entry.push_str(&format!("        name: \"{}\"\n", model.name));
                 }
             }
-            section.push('\n');
-            section
-        } else {
-            String::new()
+            openai_compat_entries.push(entry);
         }
+    }
+    
+    // Add copilot OpenAI-compatible entry if enabled
+    if config.copilot.enabled {
+        let port = config.copilot.port;
+        let mut entry = String::from("  # GitHub Copilot GPT/OpenAI models (via copilot-api)\n");
+        entry.push_str(&format!("  - name: \"copilot\"\n"));
+        entry.push_str(&format!("    base-url: \"http://localhost:{}/v1\"\n", port));
+        entry.push_str("    api-key-entries:\n");
+        entry.push_str("      - api-key: \"dummy\"\n");
+        entry.push_str("    models:\n");
+        // OpenAI GPT models
+        entry.push_str("      - alias: \"copilot-gpt-4.1\"\n");
+        entry.push_str("        name: \"gpt-4.1\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5\"\n");
+        entry.push_str("        name: \"gpt-5\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5-mini\"\n");
+        entry.push_str("        name: \"gpt-5-mini\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5-codex\"\n");
+        entry.push_str("        name: \"gpt-5-codex\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5.1\"\n");
+        entry.push_str("        name: \"gpt-5.1\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5.1-codex\"\n");
+        entry.push_str("        name: \"gpt-5.1-codex\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-5.1-codex-mini\"\n");
+        entry.push_str("        name: \"gpt-5.1-codex-mini\"\n");
+        // Legacy OpenAI models (may still work)
+        entry.push_str("      - alias: \"copilot-gpt-4o\"\n");
+        entry.push_str("        name: \"gpt-4o\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-4\"\n");
+        entry.push_str("        name: \"gpt-4\"\n");
+        entry.push_str("      - alias: \"copilot-gpt-4-turbo\"\n");
+        entry.push_str("        name: \"gpt-4-turbo\"\n");
+        entry.push_str("      - alias: \"copilot-o1\"\n");
+        entry.push_str("        name: \"o1\"\n");
+        entry.push_str("      - alias: \"copilot-o1-mini\"\n");
+        entry.push_str("        name: \"o1-mini\"\n");
+        // xAI Grok model
+        entry.push_str("      - alias: \"copilot-grok-code-fast-1\"\n");
+        entry.push_str("        name: \"grok-code-fast-1\"\n");
+        // Fine-tuned models
+        entry.push_str("      - alias: \"copilot-raptor-mini\"\n");
+        entry.push_str("        name: \"raptor-mini\"\n");
+        // Google Gemini models (via OpenAI-compat)
+        entry.push_str("      - alias: \"copilot-gemini-2.5-pro\"\n");
+        entry.push_str("        name: \"gemini-2.5-pro\"\n");
+        entry.push_str("      - alias: \"copilot-gemini-3-pro\"\n");
+        entry.push_str("        name: \"gemini-3-pro\"\n");
+        openai_compat_entries.push(entry);
+    }
+    
+    // Build final openai-compatibility section
+    let openai_compat_section = if openai_compat_entries.is_empty() {
+        String::new()
+    } else {
+        let mut section = String::from("# OpenAI-compatible providers\nopenai-compatibility:\n");
+        for entry in openai_compat_entries {
+            section.push_str(&entry);
+        }
+        section.push('\n');
+        section
+    };
+    
+    // Build copilot claude-api-key section if enabled (for Claude models)
+    let copilot_claude_section = if config.copilot.enabled {
+        let port = config.copilot.port;
+        let mut section = String::from("# GitHub Copilot Claude models (via copilot-api)\nclaude-api-key:\n");
+        section.push_str("  - api-key: \"dummy\"\n");
+        section.push_str(&format!("    base-url: \"http://localhost:{}\"\n", port));
+        section.push_str("    models:\n");
+        // Claude models (GA)
+        section.push_str("      - alias: \"copilot-claude-haiku-4.5\"\n");
+        section.push_str("        name: \"claude-haiku-4.5\"\n");
+        section.push_str("      - alias: \"copilot-claude-opus-4.1\"\n");
+        section.push_str("        name: \"claude-opus-4.1\"\n");
+        section.push_str("      - alias: \"copilot-claude-sonnet-4\"\n");
+        section.push_str("        name: \"claude-sonnet-4\"\n");
+        section.push_str("      - alias: \"copilot-claude-sonnet-4.5\"\n");
+        section.push_str("        name: \"claude-sonnet-4.5\"\n");
+        // Claude models (Preview)
+        section.push_str("      - alias: \"copilot-claude-opus-4.5\"\n");
+        section.push_str("        name: \"claude-opus-4.5\"\n");
+        section.push_str("    proxy-url: \"\"\n");
+        section.push_str("\n");
+        section
     } else {
         String::new()
     };
@@ -498,7 +671,7 @@ remote-management:
   secret-key: "proxypal-mgmt-key"
   disable-control-panel: true
 
-{}# Amp CLI Integration - enables amp login and management routes
+{}{}# Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
 # Get API key from: https://ampcode.com/settings
 ampcode:
@@ -516,17 +689,20 @@ ampcode:
         config.quota_switch_project,
         config.quota_switch_preview_model,
         openai_compat_section,
+        copilot_claude_section,
         amp_api_key_line,
         amp_model_mappings_section
     );
     
     std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;
 
-    // Spawn the sidecar process
+    // Spawn the sidecar process with WRITABLE_PATH set to app config dir
+    // This prevents CLIProxyAPI from writing logs to src-tauri/logs/ which triggers hot reload
     let sidecar = app
         .shell()
         .sidecar("cliproxyapi")
         .map_err(|e| format!("Failed to create sidecar command: {}", e))?
+        .env("WRITABLE_PATH", config_dir.to_str().unwrap())
         .args(["--config", proxy_config_path.to_str().unwrap()]);
 
     let (mut rx, child) = sidecar.spawn().map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
@@ -732,6 +908,254 @@ async fn stop_proxy(
     // Emit status update
     let _ = app.emit("proxy-status-changed", new_status.clone());
 
+    Ok(new_status)
+}
+
+// ============================================
+// Copilot API Management (via copilot-api)
+// ============================================
+
+#[tauri::command]
+fn get_copilot_status(state: State<AppState>) -> CopilotStatus {
+    state.copilot_status.lock().unwrap().clone()
+}
+
+#[tauri::command]
+async fn start_copilot(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<CopilotStatus, String> {
+    let config = state.config.lock().unwrap().clone();
+    let port = config.copilot.port;
+    
+    // Check if copilot is enabled
+    if !config.copilot.enabled {
+        return Err("Copilot is not enabled in settings".to_string());
+    }
+    
+    // First, check if copilot-api is already running on this port (maybe externally)
+    let client = reqwest::Client::new();
+    let health_url = format!("http://127.0.0.1:{}/v1/models", port);
+    if let Ok(response) = client
+        .get(&health_url)
+        .timeout(std::time::Duration::from_secs(2))
+        .send()
+        .await
+    {
+        if response.status().is_success() {
+            // Already running and healthy - just update status
+            let new_status = {
+                let mut status = state.copilot_status.lock().unwrap();
+                status.running = true;
+                status.port = port;
+                status.endpoint = format!("http://localhost:{}", port);
+                status.authenticated = true;
+                status.clone()
+            };
+            let _ = app.emit("copilot-status-changed", new_status.clone());
+            return Ok(new_status);
+        }
+    }
+    
+    // Kill any existing copilot process we're tracking
+    {
+        let mut process = state.copilot_process.lock().unwrap();
+        if let Some(child) = process.take() {
+            let _ = child.kill(); // Ignore errors, process might already be dead
+        }
+    }
+    
+    // Small delay to let port be released
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+    
+    // Build copilot-api command arguments
+    // Command: npx copilot-api@latest start --port 4141 [--account type] [--rate-limit N] [--rate-limit-wait]
+    let mut args = vec![
+        "copilot-api@latest".to_string(),
+        "start".to_string(),
+        "--port".to_string(),
+        port.to_string(),
+    ];
+    
+    // Add account type if specified
+    if !config.copilot.account_type.is_empty() {
+        args.push("--account".to_string());
+        args.push(config.copilot.account_type.clone());
+    }
+    
+    // Add rate limit if specified
+    if let Some(rate_limit) = config.copilot.rate_limit {
+        args.push("--rate-limit".to_string());
+        args.push(rate_limit.to_string());
+    }
+    
+    // Add rate limit wait flag
+    if config.copilot.rate_limit_wait {
+        args.push("--rate-limit-wait".to_string());
+    }
+    
+    // Spawn copilot-api using npx
+    let command = app
+        .shell()
+        .command("npx")
+        .args(&args);
+    
+    let (mut rx, child) = command.spawn().map_err(|e| format!("Failed to spawn copilot-api: {}. Make sure Node.js is installed.", e))?;
+    
+    // Store the child process
+    {
+        let mut process = state.copilot_process.lock().unwrap();
+        *process = Some(child);
+    }
+    
+    // Update status to running (but not yet authenticated)
+    {
+        let mut status = state.copilot_status.lock().unwrap();
+        status.running = true;
+        status.port = port;
+        status.endpoint = format!("http://localhost:{}", port);
+        status.authenticated = false;
+    }
+    
+    // Listen for stdout/stderr
+    let app_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        use tauri_plugin_shell::process::CommandEvent;
+        
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    println!("[copilot-api] {}", text);
+                    
+                    // Check for successful login message
+                    if text.contains("Logged in as") {
+                        // Update authenticated status
+                        if let Some(state) = app_handle.try_state::<AppState>() {
+                            let mut status = state.copilot_status.lock().unwrap();
+                            status.authenticated = true;
+                            let _ = app_handle.emit("copilot-status-changed", status.clone());
+                        }
+                    }
+                    
+                    // Check for auth URL in output
+                    if text.contains("https://github.com/login/device") {
+                        // Emit auth required event
+                        let _ = app_handle.emit("copilot-auth-required", text.to_string());
+                    }
+                }
+                CommandEvent::Stderr(line) => {
+                    let text = String::from_utf8_lossy(&line);
+                    eprintln!("[copilot-api ERROR] {}", text);
+                }
+                CommandEvent::Terminated(payload) => {
+                    println!("[copilot-api] Process terminated: {:?}", payload);
+                    // Update status when process dies
+                    if let Some(state) = app_handle.try_state::<AppState>() {
+                        let mut status = state.copilot_status.lock().unwrap();
+                        status.running = false;
+                        status.authenticated = false;
+                        let _ = app_handle.emit("copilot-status-changed", status.clone());
+                    }
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
+    
+    // Give it a moment to start
+    tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+    
+    // Check if copilot-api is responding
+    let authenticated = match client
+        .get(&health_url)
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+    {
+        Ok(response) => response.status().is_success(),
+        Err(_) => false,
+    };
+    
+    // Update status
+    let new_status = {
+        let mut status = state.copilot_status.lock().unwrap();
+        status.authenticated = authenticated;
+        status.clone()
+    };
+    
+    // Emit status update
+    let _ = app.emit("copilot-status-changed", new_status.clone());
+    
+    Ok(new_status)
+}
+
+#[tauri::command]
+async fn stop_copilot(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<CopilotStatus, String> {
+    // Check if running
+    {
+        let status = state.copilot_status.lock().unwrap();
+        if !status.running {
+            return Ok(status.clone());
+        }
+    }
+    
+    // Kill the child process
+    {
+        let mut process = state.copilot_process.lock().unwrap();
+        if let Some(child) = process.take() {
+            child.kill().map_err(|e| format!("Failed to kill copilot-api: {}", e))?;
+        }
+    }
+    
+    // Update status
+    let new_status = {
+        let mut status = state.copilot_status.lock().unwrap();
+        status.running = false;
+        status.authenticated = false;
+        status.clone()
+    };
+    
+    // Emit status update
+    let _ = app.emit("copilot-status-changed", new_status.clone());
+    
+    Ok(new_status)
+}
+
+#[tauri::command]
+async fn check_copilot_health(state: State<'_, AppState>) -> Result<CopilotStatus, String> {
+    let config = state.config.lock().unwrap().clone();
+    let port = config.copilot.port;
+    
+    let client = reqwest::Client::new();
+    let health_url = format!("http://127.0.0.1:{}/v1/models", port);
+    
+    let (running, authenticated) = match client
+        .get(&health_url)
+        .timeout(std::time::Duration::from_secs(3))
+        .send()
+        .await
+    {
+        Ok(response) => (true, response.status().is_success()),
+        Err(_) => (false, false),
+    };
+    
+    // Update status
+    let new_status = {
+        let mut status = state.copilot_status.lock().unwrap();
+        status.running = running;
+        status.authenticated = authenticated;
+        if running {
+            status.port = port;
+            status.endpoint = format!("http://localhost:{}", port);
+        }
+        status.clone()
+    };
+    
     Ok(new_status)
 }
 
@@ -2121,7 +2545,12 @@ export CODE_ASSIST_ENDPOINT="{}"
             // See: https://help.router-for.me/agent-client/amp-cli.html
             let amp_endpoint = format!("http://localhost:{}", port);
             
-            // ProxyPal settings to add/update
+            // NOTE: Model mappings are configured in CLIProxyAPI's config.yaml (proxy-config.yaml),
+            // NOT in Amp's settings.json. Amp CLI doesn't support amp.modelMapping setting.
+            // The mappings in ProxyPal settings are written to CLIProxyAPI config when proxy starts.
+            // See: https://help.router-for.me/agent-client/amp-cli.html#model-fallback-behavior
+            
+            // ProxyPal settings to add/update (only valid Amp CLI settings)
             let proxypal_settings = serde_json::json!({
                 // Core proxy URL - routes all Amp traffic through CLIProxyAPI
                 "amp.url": amp_endpoint,
@@ -2156,6 +2585,9 @@ export CODE_ASSIST_ENDPOINT="{}"
                                     existing_obj.insert(key.clone(), value.clone());
                                 }
                             }
+                            // Remove invalid amp.modelMapping key if it exists
+                            // Model mappings should be in CLIProxyAPI config, not Amp settings
+                            existing_obj.remove("amp.modelMapping");
                         }
                         existing_json
                     } else {
@@ -3366,6 +3798,8 @@ pub fn run() {
         config: Mutex::new(config),
         pending_oauth: Mutex::new(None),
         proxy_process: Mutex::new(None),
+        copilot_status: Mutex::new(CopilotStatus::default()),
+        copilot_process: Mutex::new(None),
     };
 
     tauri::Builder::default()
@@ -3416,6 +3850,11 @@ pub fn run() {
             get_proxy_status,
             start_proxy,
             stop_proxy,
+            // Copilot Management
+            get_copilot_status,
+            start_copilot,
+            stop_copilot,
+            check_copilot_health,
             get_auth_status,
             refresh_auth_status,
             open_oauth,

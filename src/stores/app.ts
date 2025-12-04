@@ -56,6 +56,14 @@ function createAppStore() {
     ampModelMappings: [],
     ampOpenaiProvider: undefined,
     ampRoutingMode: "mappings",
+    copilot: {
+      enabled: false,
+      port: 4141,
+      accountType: "individual",
+      githubToken: "",
+      rateLimit: undefined,
+      rateLimitWait: false,
+    },
   });
 
   // UI state

@@ -31,4 +31,7 @@ src-tauri/target/
 
 # OpenCode & Backlog
 .opencode/
-backlog/
+.beads/
+
+# CLIProxyAPI logs (prevent accidental commit)
+src-tauri/logs/

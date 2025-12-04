@@ -20,6 +20,10 @@ export function SettingsPage() {
   const { config, setConfig, setCurrentPage, authStatus } = appStore;
   const [saving, setSaving] = createSignal(false);
 
+  // Custom OpenAI provider section collapsed by default
+  const [customProviderExpanded, setCustomProviderExpanded] =
+    createSignal(false);
+
   // OpenAI provider state
   const [providerName, setProviderName] = createSignal("");
   const [providerBaseUrl, setProviderBaseUrl] = createSignal("");
@@ -283,6 +287,14 @@ export function SettingsPage() {
         .map((m) => ({ value: m.id, label: m.id })),
       qwen: models
         .filter((m) => m.ownedBy === "qwen")
+        .map((m) => ({ value: m.id, label: m.id })),
+      // GitHub Copilot models (via copilot-api) - includes both GPT and Claude models
+      copilot: models
+        .filter(
+          (m) =>
+            m.ownedBy === "copilot" ||
+            (m.ownedBy === "claude" && m.id.startsWith("copilot-")),
+        )
         .map((m) => ({ value: m.id, label: m.id })),
     };
 
@@ -702,6 +714,17 @@ export function SettingsPage() {
                                     )}
                                   </For>
                                 </optgroup>
+                                <Show when={builtInModels.copilot.length > 0}>
+                                  <optgroup label="GitHub Copilot">
+                                    <For each={builtInModels.copilot}>
+                                      {(model) => (
+                                        <option value={model.value}>
+                                          {model.label}
+                                        </option>
+                                      )}
+                                    </For>
+                                  </optgroup>
+                                </Show>
                               </select>
                             );
                           })()}
@@ -811,6 +834,17 @@ export function SettingsPage() {
                                 )}
                               </For>
                             </optgroup>
+                            <Show when={builtInModels.copilot.length > 0}>
+                              <optgroup label="GitHub Copilot">
+                                <For each={builtInModels.copilot}>
+                                  {(model) => (
+                                    <option value={model.value}>
+                                      {model.label}
+                                    </option>
+                                  )}
+                                </For>
+                              </optgroup>
+                            </Show>
                           </select>
 
                           {/* Delete button */}
@@ -908,6 +942,17 @@ export function SettingsPage() {
                               )}
                             </For>
                           </optgroup>
+                          <Show when={builtInModels.copilot.length > 0}>
+                            <optgroup label="GitHub Copilot">
+                              <For each={builtInModels.copilot}>
+                                {(model) => (
+                                  <option value={model.value}>
+                                    {model.label}
+                                  </option>
+                                )}
+                              </For>
+                            </optgroup>
+                          </Show>
                         </select>
                       );
                     })()}
@@ -939,80 +984,130 @@ export function SettingsPage() {
 
               <div class="border-t border-gray-200 dark:border-gray-700" />
 
-              {/* Custom OpenAI-Compatible Provider */}
+              {/* Custom OpenAI-Compatible Provider - Collapsible */}
               <div class="space-y-4">
-                <div>
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Custom OpenAI-Compatible Provider
-                  </span>
-                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    Add a provider (e.g., ZenMux, OpenRouter) whose model
-                    aliases can be used as mapping targets above
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCustomProviderExpanded(!customProviderExpanded())
+                  }
+                  class="w-full flex items-center justify-between text-left"
+                >
+                  <div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Custom OpenAI-Compatible Provider
+                    </span>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Optional: Add external provider (ZenMux, OpenRouter, etc.)
+                      for additional models
+                    </p>
+                  </div>
+                  <svg
+                    class={`w-5 h-5 text-gray-400 transition-transform ${customProviderExpanded() ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
 
-                {/* Provider Name */}
-                <label class="block">
-                  <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    Provider Name
-                  </span>
-                  <input
-                    type="text"
-                    value={providerName()}
-                    onInput={(e) => setProviderName(e.currentTarget.value)}
-                    placeholder="e.g. zenmux, openrouter"
-                    class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                  />
-                </label>
+                <Show when={customProviderExpanded()}>
+                  {/* Provider Name */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Provider Name
+                    </span>
+                    <input
+                      type="text"
+                      value={providerName()}
+                      onInput={(e) => setProviderName(e.currentTarget.value)}
+                      placeholder="e.g. zenmux, openrouter"
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
 
-                {/* Base URL */}
-                <label class="block">
-                  <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    Base URL
-                  </span>
-                  <input
-                    type="text"
-                    value={providerBaseUrl()}
-                    onInput={(e) => setProviderBaseUrl(e.currentTarget.value)}
-                    placeholder="https://api.example.com/v1"
-                    class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                  />
-                </label>
+                  {/* Base URL */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Base URL
+                    </span>
+                    <input
+                      type="text"
+                      value={providerBaseUrl()}
+                      onInput={(e) => setProviderBaseUrl(e.currentTarget.value)}
+                      placeholder="https://api.example.com/v1"
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
 
-                {/* API Key */}
-                <label class="block">
-                  <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    API Key
-                  </span>
-                  <input
-                    type="password"
-                    value={providerApiKey()}
-                    onInput={(e) => setProviderApiKey(e.currentTarget.value)}
-                    placeholder="sk-..."
-                    class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                  />
-                </label>
+                  {/* API Key */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      API Key
+                    </span>
+                    <input
+                      type="password"
+                      value={providerApiKey()}
+                      onInput={(e) => setProviderApiKey(e.currentTarget.value)}
+                      placeholder="sk-..."
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
 
-                {/* Models */}
-                <div class="space-y-2">
-                  <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    Model Aliases (map Amp model names to provider model names)
-                  </span>
+                  {/* Models */}
+                  <div class="space-y-2">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Model Aliases (map Amp model names to provider model
+                      names)
+                    </span>
 
-                  {/* Existing models */}
-                  <For each={providerModels()}>
-                    {(model, index) => (
-                      <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                        <div class="flex-1 flex items-center gap-2 text-xs font-mono overflow-hidden">
-                          <span
-                            class="text-gray-700 dark:text-gray-300 truncate"
-                            title={model.name}
+                    {/* Existing models */}
+                    <For each={providerModels()}>
+                      {(model, index) => (
+                        <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div class="flex-1 flex items-center gap-2 text-xs font-mono overflow-hidden">
+                            <span
+                              class="text-gray-700 dark:text-gray-300 truncate"
+                              title={model.name}
+                            >
+                              {model.name}
+                            </span>
+                            <Show when={model.alias}>
+                              <svg
+                                class="w-4 h-4 text-gray-400 flex-shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                />
+                              </svg>
+                              <span
+                                class="text-brand-500 truncate"
+                                title={model.alias}
+                              >
+                                {model.alias}
+                              </span>
+                            </Show>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeProviderModel(index())}
+                            class="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                            title="Remove model"
                           >
-                            {model.name}
-                          </span>
-                          <Show when={model.alias}>
                             <svg
-                              class="w-4 h-4 text-gray-400 flex-shrink-0"
+                              class="w-4 h-4"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -1021,153 +1116,141 @@ export function SettingsPage() {
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                                 stroke-width="2"
-                                d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                d="M6 18L18 6M6 6l12 12"
                               />
                             </svg>
-                            <span
-                              class="text-brand-500 truncate"
-                              title={model.alias}
-                            >
-                              {model.alias}
-                            </span>
-                          </Show>
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeProviderModel(index())}
-                          class="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                          title="Remove model"
-                        >
-                          <svg
-                            class="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </For>
+                      )}
+                    </For>
 
-                  {/* Add new model */}
-                  <div class="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      value={newModelName()}
-                      onInput={(e) => setNewModelName(e.currentTarget.value)}
-                      placeholder="Provider model (e.g. anthropic/claude-opus-4.5)"
-                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                    />
-                    <input
-                      type="text"
-                      value={newModelAlias()}
-                      onInput={(e) => setNewModelAlias(e.currentTarget.value)}
-                      placeholder="Alias (e.g. claude-opus-4-5-20251101)"
-                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                    />
+                    {/* Add new model */}
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={newModelName()}
+                        onInput={(e) => setNewModelName(e.currentTarget.value)}
+                        placeholder="Provider model (e.g. anthropic/claude-opus-4.5)"
+                        class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                      />
+                      <input
+                        type="text"
+                        value={newModelAlias()}
+                        onInput={(e) => setNewModelAlias(e.currentTarget.value)}
+                        placeholder="Alias (e.g. claude-opus-4-5-20251101)"
+                        class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={addProviderModel}
+                        disabled={!newModelName().trim()}
+                      >
+                        <svg
+                          class="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Save / Clear / Test buttons */}
+                  <div class="flex flex-wrap gap-2 pt-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={saveOpenAIProvider}
+                      disabled={
+                        !providerName().trim() ||
+                        !providerBaseUrl().trim() ||
+                        !providerApiKey().trim()
+                      }
+                    >
+                      Save Provider
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={addProviderModel}
-                      disabled={!newModelName().trim()}
+                      onClick={testProviderConnection}
+                      disabled={
+                        testingProvider() ||
+                        !providerBaseUrl().trim() ||
+                        !providerApiKey().trim()
+                      }
                     >
-                      <svg
-                        class="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
+                      {testingProvider() ? (
+                        <span class="flex items-center gap-1.5">
+                          <svg
+                            class="w-3 h-3 animate-spin"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              class="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              stroke-width="4"
+                            />
+                            <path
+                              class="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            />
+                          </svg>
+                          Testing...
+                        </span>
+                      ) : (
+                        "Test Connection"
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearOpenAIProvider}
+                    >
+                      Clear
                     </Button>
                   </div>
-                </div>
 
-                {/* Save / Clear / Test buttons */}
-                <div class="flex flex-wrap gap-2 pt-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={saveOpenAIProvider}
-                    disabled={
-                      !providerName().trim() ||
-                      !providerBaseUrl().trim() ||
-                      !providerApiKey().trim()
-                    }
-                  >
-                    Save Provider
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={testProviderConnection}
-                    disabled={
-                      testingProvider() ||
-                      !providerBaseUrl().trim() ||
-                      !providerApiKey().trim()
-                    }
-                  >
-                    {testingProvider() ? (
-                      <span class="flex items-center gap-1.5">
-                        <svg
-                          class="w-3 h-3 animate-spin"
-                          fill="none"
-                          viewBox="0 0 24 24"
+                  {/* Test result indicator */}
+                  <Show when={providerTestResult()}>
+                    {(result) => (
+                      <div
+                        class={`flex items-center gap-2 p-2 rounded-lg text-xs ${
+                          result().success
+                            ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+                            : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+                        }`}
+                      >
+                        <Show
+                          when={result().success}
+                          fallback={
+                            <svg
+                              class="w-4 h-4 flex-shrink-0"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          }
                         >
-                          <circle
-                            class="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            stroke-width="4"
-                          />
-                          <path
-                            class="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          />
-                        </svg>
-                        Testing...
-                      </span>
-                    ) : (
-                      "Test Connection"
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearOpenAIProvider}
-                  >
-                    Clear
-                  </Button>
-                </div>
-
-                {/* Test result indicator */}
-                <Show when={providerTestResult()}>
-                  {(result) => (
-                    <div
-                      class={`flex items-center gap-2 p-2 rounded-lg text-xs ${
-                        result().success
-                          ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
-                          : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
-                      }`}
-                    >
-                      <Show
-                        when={result().success}
-                        fallback={
                           <svg
                             class="w-4 h-4 flex-shrink-0"
                             fill="none"
@@ -1178,38 +1261,24 @@ export function SettingsPage() {
                               stroke-linecap="round"
                               stroke-linejoin="round"
                               stroke-width="2"
-                              d="M6 18L18 6M6 6l12 12"
+                              d="M5 13l4 4L19 7"
                             />
                           </svg>
-                        }
-                      >
-                        <svg
-                          class="w-4 h-4 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M5 13l4 4L19 7"
-                          />
-                        </svg>
-                      </Show>
-                      <span>{result().message}</span>
-                      <Show when={result().modelsFound}>
-                        <span class="text-gray-500 dark:text-gray-400">
-                          ({result().modelsFound} models)
-                        </span>
-                      </Show>
-                      <Show when={result().latencyMs}>
-                        <span class="text-gray-500 dark:text-gray-400">
-                          {result().latencyMs}ms
-                        </span>
-                      </Show>
-                    </div>
-                  )}
+                        </Show>
+                        <span>{result().message}</span>
+                        <Show when={result().modelsFound}>
+                          <span class="text-gray-500 dark:text-gray-400">
+                            ({result().modelsFound} models)
+                          </span>
+                        </Show>
+                        <Show when={result().latencyMs}>
+                          <span class="text-gray-500 dark:text-gray-400">
+                            {result().latencyMs}ms
+                          </span>
+                        </Show>
+                      </div>
+                    )}
+                  </Show>
                 </Show>
               </div>
 

@@ -6,6 +6,7 @@ import { ThemeToggleCompact } from "../components/ThemeToggle";
 import { HealthIndicator } from "../components/HealthIndicator";
 import { openCommandPalette } from "../components/CommandPalette";
 import { OpenCodeKitBanner } from "../components/OpenCodeKitBanner";
+import { CopilotCard } from "../components/CopilotCard";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
 import {
@@ -28,6 +29,7 @@ import {
   type AgentStatus,
   type AgentConfigResult,
   type AvailableModel,
+  type CopilotConfig,
 } from "../lib/tauri";
 
 const providers = [
@@ -228,6 +230,8 @@ export function DashboardPage() {
     setProxyStatus,
     authStatus,
     setAuthStatus,
+    config,
+    setConfig,
     setCurrentPage,
   } = appStore;
   const [toggling, setToggling] = createSignal(false);
@@ -254,6 +258,11 @@ export function DashboardPage() {
     totalCostUsd: 0,
   });
   const [stats, setStats] = createSignal<UsageStats | null>(null);
+
+  // Copilot config handler
+  const handleCopilotConfigChange = (copilotConfig: CopilotConfig) => {
+    setConfig({ ...config(), copilot: copilotConfig });
+  };
 
   // Load data on mount
   const loadAgents = async () => {
@@ -944,6 +953,13 @@ export function DashboardPage() {
               </div>
             </Show>
           </div>
+
+          {/* === ZONE 3.5: GitHub Copilot === */}
+          <CopilotCard
+            config={config().copilot}
+            onConfigChange={handleCopilotConfigChange}
+            proxyRunning={proxyStatus().running}
+          />
 
           {/* === ZONE 4: API Endpoint === */}
           <ApiEndpoint

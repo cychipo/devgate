@@ -91,37 +91,125 @@ export interface AmpModelSlot {
 }
 
 // Default Amp model slots (these are the models Amp CLI uses)
-// Based on https://ampcode.com/models
+// Based on actual Amp CLI logs (~/.cache/amp/logs/cli.log) and ampcode.com/models
+// IMPORTANT: Model names must match EXACTLY what Amp sends in requests
 export const AMP_MODEL_SLOTS: AmpModelSlot[] = [
+  // Main Agent Modes
   {
     id: "smart",
     name: "Smart",
-    fromModel: "claude-opus-4-5-20250514",
+    fromModel: "claude-opus-4-5-20251101", // From Amp logs: "model":"claude-opus-4-5-20251101"
     fromLabel: "Claude Opus 4.5",
   },
   {
     id: "rush",
     name: "Rush",
-    fromModel: "claude-haiku-4-5-20250514",
+    fromModel: "claude-haiku-4-5-20251001", // From Amp logs: "model":"claude-haiku-4-5-20251001"
     fromLabel: "Claude Haiku 4.5",
   },
+  // Specialized Subagents
   {
     id: "oracle",
     name: "Oracle",
     fromModel: "gpt-5.1",
-    fromLabel: "GPT-5.1",
+    fromLabel: "GPT-5.1 (Complex reasoning)",
+  },
+  {
+    id: "search",
+    name: "Search",
+    fromModel: "claude-haiku-4-5-20251001",
+    fromLabel: "Claude Haiku 4.5 (Codebase retrieval)",
+  },
+  {
+    id: "librarian",
+    name: "Librarian",
+    fromModel: "claude-sonnet-4-5-20250514",
+    fromLabel: "Claude Sonnet 4.5 (External research)",
+  },
+  // Feature Models
+  {
+    id: "review",
+    name: "Review",
+    fromModel: "gemini-2.5-flash-lite",
+    fromLabel: "Gemini 2.5 Flash-Lite (Code review)",
+  },
+  // System Models
+  {
+    id: "handoff",
+    name: "Handoff",
+    fromModel: "gemini-2.5-flash",
+    fromLabel: "Gemini 2.5 Flash (Context analysis)",
   },
 ];
 
 // Common model aliases that Amp might use (without date suffix)
 // These map to the full model identifiers
 export const AMP_MODEL_ALIASES: Record<string, string> = {
-  "claude-opus-4.5": "claude-opus-4-5-20250514",
-  "claude-opus-4-5": "claude-opus-4-5-20250514",
-  "claude-haiku-4.5": "claude-haiku-4-5-20250514",
-  "claude-haiku-4-5": "claude-haiku-4-5-20250514",
+  "claude-opus-4.5": "claude-opus-4-5-20251101",
+  "claude-opus-4-5": "claude-opus-4-5-20251101",
+  "claude-haiku-4.5": "claude-haiku-4-5-20251001",
+  "claude-haiku-4-5": "claude-haiku-4-5-20251001",
   "claude-sonnet-4.5": "claude-sonnet-4-5-20250514",
   "claude-sonnet-4-5": "claude-sonnet-4-5-20250514",
+};
+
+// Complete list of GitHub Copilot models available via copilot-api
+// These are exposed as copilot-{model} aliases in CLIProxyAPI
+export const COPILOT_MODELS = {
+  // OpenAI GPT models
+  openai: [
+    { id: "copilot-gpt-4.1", name: "GPT-4.1", status: "GA" },
+    { id: "copilot-gpt-5", name: "GPT-5", status: "GA" },
+    { id: "copilot-gpt-5-mini", name: "GPT-5 Mini", status: "GA" },
+    { id: "copilot-gpt-5-codex", name: "GPT-5 Codex", status: "Preview" },
+    { id: "copilot-gpt-5.1", name: "GPT-5.1", status: "Preview" },
+    { id: "copilot-gpt-5.1-codex", name: "GPT-5.1 Codex", status: "Preview" },
+    {
+      id: "copilot-gpt-5.1-codex-mini",
+      name: "GPT-5.1 Codex Mini",
+      status: "Preview",
+    },
+    // Legacy models
+    { id: "copilot-gpt-4o", name: "GPT-4o", status: "Legacy" },
+    { id: "copilot-gpt-4", name: "GPT-4", status: "Legacy" },
+    { id: "copilot-gpt-4-turbo", name: "GPT-4 Turbo", status: "Legacy" },
+    { id: "copilot-o1", name: "O1", status: "Legacy" },
+    { id: "copilot-o1-mini", name: "O1 Mini", status: "Legacy" },
+  ],
+  // Anthropic Claude models
+  claude: [
+    { id: "copilot-claude-haiku-4.5", name: "Claude Haiku 4.5", status: "GA" },
+    { id: "copilot-claude-opus-4.1", name: "Claude Opus 4.1", status: "GA" },
+    { id: "copilot-claude-sonnet-4", name: "Claude Sonnet 4", status: "GA" },
+    {
+      id: "copilot-claude-sonnet-4.5",
+      name: "Claude Sonnet 4.5",
+      status: "GA",
+    },
+    {
+      id: "copilot-claude-opus-4.5",
+      name: "Claude Opus 4.5",
+      status: "Preview",
+    },
+  ],
+  // Google Gemini models
+  gemini: [
+    { id: "copilot-gemini-2.5-pro", name: "Gemini 2.5 Pro", status: "GA" },
+    { id: "copilot-gemini-3-pro", name: "Gemini 3 Pro", status: "Preview" },
+  ],
+  // Other models
+  other: [
+    {
+      id: "copilot-grok-code-fast-1",
+      name: "Grok Code Fast 1 (xAI)",
+      status: "GA",
+    },
+    {
+      id: "copilot-raptor-mini",
+      name: "Raptor Mini (Fine-tuned)",
+      status: "Preview",
+    },
+  ],
 };
 
 // OpenAI-compatible model for Amp routing
@@ -136,6 +224,24 @@ export interface AmpOpenAIProvider {
   baseUrl: string;
   apiKey: string;
   models: AmpOpenAIModel[];
+}
+
+// GitHub Copilot configuration (via copilot-api)
+export interface CopilotConfig {
+  enabled: boolean;
+  port: number;
+  accountType: string; // "individual", "business", "enterprise"
+  githubToken: string;
+  rateLimit?: number;
+  rateLimitWait: boolean;
+}
+
+// Copilot status
+export interface CopilotStatus {
+  running: boolean;
+  port: number;
+  endpoint: string;
+  authenticated: boolean;
 }
 
 // Config
@@ -155,6 +261,7 @@ export interface AppConfig {
   ampModelMappings: AmpModelMapping[];
   ampOpenaiProvider?: AmpOpenAIProvider;
   ampRoutingMode: string; // "mappings" or "openai"
+  copilot: CopilotConfig;
 }
 
 export async function getConfig(): Promise<AppConfig> {
@@ -199,6 +306,42 @@ export async function onTrayToggleProxy(
   callback: (shouldStart: boolean) => void,
 ): Promise<UnlistenFn> {
   return listen<boolean>("tray-toggle-proxy", (event) => {
+    callback(event.payload);
+  });
+}
+
+// ============================================
+// Copilot API Management (via copilot-api)
+// ============================================
+
+export async function getCopilotStatus(): Promise<CopilotStatus> {
+  return invoke("get_copilot_status");
+}
+
+export async function startCopilot(): Promise<CopilotStatus> {
+  return invoke("start_copilot");
+}
+
+export async function stopCopilot(): Promise<CopilotStatus> {
+  return invoke("stop_copilot");
+}
+
+export async function checkCopilotHealth(): Promise<CopilotStatus> {
+  return invoke("check_copilot_health");
+}
+
+export async function onCopilotStatusChanged(
+  callback: (status: CopilotStatus) => void,
+): Promise<UnlistenFn> {
+  return listen<CopilotStatus>("copilot-status-changed", (event) => {
+    callback(event.payload);
+  });
+}
+
+export async function onCopilotAuthRequired(
+  callback: (message: string) => void,
+): Promise<UnlistenFn> {
+  return listen<string>("copilot-auth-required", (event) => {
     callback(event.payload);
   });
 }
