@@ -3062,6 +3062,10 @@ export CODE_ASSIST_ENDPOINT="{}"
                 // Core proxy URL - routes all Amp traffic through CLIProxyAPI
                 "amp.url": amp_endpoint,
                 
+                // API key for authentication with the proxy
+                // This matches the api-keys in CLIProxyAPI config
+                "amp.apiKey": "proxypal-local",
+                
                 // Enable extended thinking for Claude models
                 "amp.anthropic.thinking.enabled": true,
                 
@@ -3116,9 +3120,10 @@ export CODE_ASSIST_ENDPOINT="{}"
             // Also provide env var option and API key instructions
             let shell_config = format!(r#"# ProxyPal - Amp CLI Configuration (alternative to settings.json)
 export AMP_URL="{}"
+export AMP_API_KEY="proxypal-local"
 
-# For non-interactive use (CI/CD), set your API key from https://ampcode.com/settings
-# export AMP_API_KEY="amp_..."
+# For Amp cloud features, get your API key from https://ampcode.com/settings
+# and add it to ProxyPal Settings > Amp CLI Integration > Amp API Key
 "#, amp_endpoint);
             
             Ok(serde_json::json!({
@@ -3126,7 +3131,7 @@ export AMP_URL="{}"
                 "configType": "both",
                 "configPath": config_path.to_string_lossy(),
                 "shellConfig": shell_config,
-                "instructions": "Amp CLI has been configured with full settings. Run 'amp login' to authenticate (opens browser), then 'amp' to start using it. For API key auth, get your key from https://ampcode.com/settings"
+                "instructions": "Amp CLI has been configured. Run 'amp' to start using it. The API key 'proxypal-local' is pre-configured for local proxy access."
             }))
         },
         
