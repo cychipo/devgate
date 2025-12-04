@@ -75,10 +75,24 @@ export async function refreshAuthStatus(): Promise<AuthStatus> {
   return invoke("refresh_auth_status");
 }
 
-// Amp model mapping for routing requests to different models
+// Amp model mapping for routing requests to different models (simple mode)
 export interface AmpModelMapping {
   from: string;
   to: string;
+}
+
+// OpenAI-compatible model for Amp routing
+export interface AmpOpenAIModel {
+  name: string;
+  alias: string;
+}
+
+// OpenAI-compatible provider configuration for Amp
+export interface AmpOpenAIProvider {
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  models: AmpOpenAIModel[];
 }
 
 // Config
@@ -96,6 +110,8 @@ export interface AppConfig {
   loggingToFile: boolean;
   ampApiKey: string;
   ampModelMappings: AmpModelMapping[];
+  ampOpenaiProvider?: AmpOpenAIProvider;
+  ampRoutingMode: string; // "mappings" or "openai"
 }
 
 export async function getConfig(): Promise<AppConfig> {

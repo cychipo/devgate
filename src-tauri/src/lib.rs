@@ -98,6 +98,10 @@ pub struct AppConfig {
     pub amp_api_key: String,
     #[serde(default)]
     pub amp_model_mappings: Vec<AmpModelMapping>,
+    #[serde(default)]
+    pub amp_openai_provider: Option<AmpOpenAIProvider>,
+    #[serde(default)]
+    pub amp_routing_mode: String, // "mappings" or "openai" - default is "mappings"
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -108,11 +112,31 @@ fn default_config_version() -> u8 {
     1
 }
 
-// Amp model mapping for routing requests to different models
+// Amp model mapping for routing requests to different models (simple mode)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AmpModelMapping {
     pub from: String,
     pub to: String,
+}
+
+// OpenAI-compatible provider model for Amp routing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AmpOpenAIModel {
+    pub name: String,
+    #[serde(default)]
+    pub alias: String,
+}
+
+// OpenAI-compatible provider configuration for Amp
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AmpOpenAIProvider {
+    pub name: String,
+    pub base_url: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub models: Vec<AmpOpenAIModel>,
 }
 
 impl Default for AppConfig {
@@ -132,6 +156,8 @@ impl Default for AppConfig {
             config_version: 1,
             amp_api_key: String::new(),
             amp_model_mappings: Vec::new(),
+            amp_openai_provider: None,
+            amp_routing_mode: "mappings".to_string(),
         }
     }
 }
@@ -395,8 +421,11 @@ async fn start_proxy(
         format!("  upstream-api-key: \"{}\"", config.amp_api_key)
     };
     
-    // Build amp model-mappings section if configured
-    let amp_model_mappings_section = if config.amp_model_mappings.is_empty() {
+    // Build amp model-mappings section if configured (for ampcode mode)
+    let amp_model_mappings_section = if config.amp_routing_mode == "openai" {
+        // In openai mode, we don't use ampcode model-mappings
+        "  # model-mappings: (using openai-compatibility mode instead)".to_string()
+    } else if config.amp_model_mappings.is_empty() {
         "  # model-mappings:  # Optional: map Amp model requests to different models\n  #   - from: claude-opus-4-5-20251101\n  #     to: your-preferred-model".to_string()
     } else {
         let mut mappings = String::from("  model-mappings:");
@@ -404,6 +433,33 @@ async fn start_proxy(
             mappings.push_str(&format!("\n    - from: {}\n      to: {}", mapping.from, mapping.to));
         }
         mappings
+    };
+    
+    // Build openai-compatibility section for Amp routing (alternative to model-mappings)
+    let openai_compat_section = if config.amp_routing_mode == "openai" {
+        if let Some(ref provider) = config.amp_openai_provider {
+            let mut section = String::from("\n# OpenAI-compatible provider for Amp model routing\nopenai-compatibility:\n");
+            section.push_str(&format!("  - name: {}\n", provider.name));
+            section.push_str(&format!("    base-url: {}\n", provider.base_url));
+            section.push_str("    api-key-entries:\n");
+            section.push_str(&format!("      - api-key: {}\n", provider.api_key));
+            
+            if !provider.models.is_empty() {
+                section.push_str("    models:\n");
+                for model in &provider.models {
+                    if model.alias.is_empty() {
+                        section.push_str(&format!("      - name: {}\n", model.name));
+                    } else {
+                        section.push_str(&format!("      - name: {}\n        alias: {}\n", model.name, model.alias));
+                    }
+                }
+            }
+            section
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
     };
     
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
@@ -438,6 +494,7 @@ ampcode:
 {}
 {}
   restrict-management-to-localhost: true
+{}
 "#,
         config.port,
         config.debug,
@@ -448,7 +505,8 @@ ampcode:
         config.quota_switch_project,
         config.quota_switch_preview_model,
         amp_api_key_line,
-        amp_model_mappings_section
+        amp_model_mappings_section,
+        openai_compat_section
     );
     
     std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;

@@ -54,6 +54,8 @@ function createAppStore() {
     loggingToFile: false,
     ampApiKey: "",
     ampModelMappings: [],
+    ampOpenaiProvider: undefined,
+    ampRoutingMode: "mappings",
   });
 
   // UI state

@@ -1,14 +1,38 @@
-import { createSignal, For } from "solid-js";
+import { createSignal, For, Show, createEffect } from "solid-js";
 import { Button, Switch } from "../components/ui";
 import { appStore } from "../stores/app";
 import { toastStore } from "../stores/toast";
 import { saveConfig } from "../lib/tauri";
+import type { AmpOpenAIModel, AmpOpenAIProvider } from "../lib/tauri";
 
 export function SettingsPage() {
   const { config, setConfig, setCurrentPage, authStatus } = appStore;
   const [saving, setSaving] = createSignal(false);
+
+  // Simple model mappings state
   const [newMappingFrom, setNewMappingFrom] = createSignal("");
   const [newMappingTo, setNewMappingTo] = createSignal("");
+
+  // OpenAI provider state
+  const [providerName, setProviderName] = createSignal("");
+  const [providerBaseUrl, setProviderBaseUrl] = createSignal("");
+  const [providerApiKey, setProviderApiKey] = createSignal("");
+  const [providerModels, setProviderModels] = createSignal<AmpOpenAIModel[]>(
+    [],
+  );
+  const [newModelName, setNewModelName] = createSignal("");
+  const [newModelAlias, setNewModelAlias] = createSignal("");
+
+  // Initialize OpenAI provider form from config
+  createEffect(() => {
+    const provider = config().ampOpenaiProvider;
+    if (provider) {
+      setProviderName(provider.name);
+      setProviderBaseUrl(provider.baseUrl);
+      setProviderApiKey(provider.apiKey);
+      setProviderModels(provider.models || []);
+    }
+  });
 
   const handleConfigChange = async (
     key: keyof ReturnType<typeof config>,
@@ -74,6 +98,92 @@ export function SettingsPage() {
     try {
       await saveConfig(newConfig);
       toastStore.success("Model mapping removed");
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setRoutingMode = async (mode: string) => {
+    const newConfig = { ...config(), ampRoutingMode: mode };
+    setConfig(newConfig);
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success(
+        `Routing mode set to ${mode === "openai" ? "OpenAI Compatible" : "Model Mappings"}`,
+      );
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const addProviderModel = () => {
+    const name = newModelName().trim();
+    const alias = newModelAlias().trim();
+    if (!name) {
+      toastStore.error("Model name is required");
+      return;
+    }
+    setProviderModels([...providerModels(), { name, alias }]);
+    setNewModelName("");
+    setNewModelAlias("");
+  };
+
+  const removeProviderModel = (index: number) => {
+    setProviderModels(providerModels().filter((_, i) => i !== index));
+  };
+
+  const saveOpenAIProvider = async () => {
+    const name = providerName().trim();
+    const baseUrl = providerBaseUrl().trim();
+    const apiKey = providerApiKey().trim();
+
+    if (!name || !baseUrl || !apiKey) {
+      toastStore.error("Provider name, base URL, and API key are required");
+      return;
+    }
+
+    const provider: AmpOpenAIProvider = {
+      name,
+      baseUrl,
+      apiKey,
+      models: providerModels(),
+    };
+
+    const newConfig = { ...config(), ampOpenaiProvider: provider };
+    setConfig(newConfig);
+
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success("OpenAI provider configuration saved");
+    } catch (error) {
+      console.error("Failed to save config:", error);
+      toastStore.error("Failed to save settings", String(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const clearOpenAIProvider = async () => {
+    setProviderName("");
+    setProviderBaseUrl("");
+    setProviderApiKey("");
+    setProviderModels([]);
+
+    const newConfig = { ...config(), ampOpenaiProvider: undefined };
+    setConfig(newConfig);
+
+    setSaving(true);
+    try {
+      await saveConfig(newConfig);
+      toastStore.success("OpenAI provider configuration cleared");
     } catch (error) {
       console.error("Failed to save config:", error);
       toastStore.error("Failed to save settings", String(error));
@@ -278,54 +388,295 @@ export function SettingsPage() {
 
               <div class="border-t border-gray-200 dark:border-gray-700" />
 
-              {/* Model Mappings */}
+              {/* Routing Mode Selector */}
               <div class="space-y-3">
                 <div>
                   <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Model Mappings
+                    Model Routing Mode
                   </span>
                   <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    Route Amp model requests to different available models
-                    (useful when you don't have direct Claude access)
+                    Choose how Amp model requests are routed to your providers
                   </p>
                 </div>
 
-                {/* Existing mappings */}
-                <For each={config().ampModelMappings || []}>
-                  {(mapping, index) => (
-                    <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div class="flex-1 flex items-center gap-2 text-xs font-mono overflow-hidden">
-                        <span
-                          class="text-gray-500 dark:text-gray-400 truncate"
-                          title={mapping.from}
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRoutingMode("mappings")}
+                    class={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      config().ampRoutingMode !== "openai"
+                        ? "bg-brand-500 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    Simple Mappings
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRoutingMode("openai")}
+                    class={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      config().ampRoutingMode === "openai"
+                        ? "bg-brand-500 text-white"
+                        : "bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    OpenAI Compatible
+                  </button>
+                </div>
+              </div>
+
+              <div class="border-t border-gray-200 dark:border-gray-700" />
+
+              {/* Simple Model Mappings Mode */}
+              <Show when={config().ampRoutingMode !== "openai"}>
+                <div class="space-y-3">
+                  <div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Model Mappings
+                    </span>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Map Amp model requests to different models (e.g.,
+                      claude-opus → gemini-pro)
+                    </p>
+                  </div>
+
+                  {/* Existing mappings */}
+                  <For each={config().ampModelMappings || []}>
+                    {(mapping, index) => (
+                      <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div class="flex-1 flex items-center gap-2 text-xs font-mono overflow-hidden">
+                          <span
+                            class="text-gray-500 dark:text-gray-400 truncate"
+                            title={mapping.from}
+                          >
+                            {mapping.from}
+                          </span>
+                          <svg
+                            class="w-4 h-4 text-gray-400 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M13 7l5 5m0 0l-5 5m5-5H6"
+                            />
+                          </svg>
+                          <span
+                            class="text-gray-700 dark:text-gray-300 truncate"
+                            title={mapping.to}
+                          >
+                            {mapping.to}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeModelMapping(index())}
+                          class="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                          title="Remove mapping"
                         >
-                          {mapping.from}
-                        </span>
-                        <svg
-                          class="w-4 h-4 text-gray-400 flex-shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M13 7l5 5m0 0l-5 5m5-5H6"
-                          />
-                        </svg>
-                        <span
-                          class="text-gray-700 dark:text-gray-300 truncate"
-                          title={mapping.to}
-                        >
-                          {mapping.to}
-                        </span>
+                          <svg
+                            class="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeModelMapping(index())}
-                        class="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                        title="Remove mapping"
+                    )}
+                  </For>
+
+                  {/* Add new mapping */}
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={newMappingFrom()}
+                      onInput={(e) => setNewMappingFrom(e.currentTarget.value)}
+                      placeholder="From (e.g. claude-opus-4-5-20251101)"
+                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                    <input
+                      type="text"
+                      value={newMappingTo()}
+                      onInput={(e) => setNewMappingTo(e.currentTarget.value)}
+                      placeholder="To (e.g. gemini-2.0-flash)"
+                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={addModelMapping}
+                      disabled={
+                        !newMappingFrom().trim() || !newMappingTo().trim()
+                      }
+                    >
+                      <svg
+                        class="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                    </Button>
+                  </div>
+                </div>
+              </Show>
+
+              {/* OpenAI Compatible Provider Mode */}
+              <Show when={config().ampRoutingMode === "openai"}>
+                <div class="space-y-4">
+                  <div>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      OpenAI-Compatible Provider
+                    </span>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                      Configure a custom provider (e.g., ZenMux, OpenRouter) to
+                      handle Amp requests
+                    </p>
+                  </div>
+
+                  {/* Provider Name */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Provider Name
+                    </span>
+                    <input
+                      type="text"
+                      value={providerName()}
+                      onInput={(e) => setProviderName(e.currentTarget.value)}
+                      placeholder="e.g. zenmux, openrouter"
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
+
+                  {/* Base URL */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Base URL
+                    </span>
+                    <input
+                      type="text"
+                      value={providerBaseUrl()}
+                      onInput={(e) => setProviderBaseUrl(e.currentTarget.value)}
+                      placeholder="https://api.example.com/v1"
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
+
+                  {/* API Key */}
+                  <label class="block">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      API Key
+                    </span>
+                    <input
+                      type="password"
+                      value={providerApiKey()}
+                      onInput={(e) => setProviderApiKey(e.currentTarget.value)}
+                      placeholder="sk-..."
+                      class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                    />
+                  </label>
+
+                  {/* Models */}
+                  <div class="space-y-2">
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Model Aliases (map Amp model names to provider model
+                      names)
+                    </span>
+
+                    {/* Existing models */}
+                    <For each={providerModels()}>
+                      {(model, index) => (
+                        <div class="flex items-center gap-2 p-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div class="flex-1 flex items-center gap-2 text-xs font-mono overflow-hidden">
+                            <span
+                              class="text-gray-700 dark:text-gray-300 truncate"
+                              title={model.name}
+                            >
+                              {model.name}
+                            </span>
+                            <Show when={model.alias}>
+                              <svg
+                                class="w-4 h-4 text-gray-400 flex-shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                />
+                              </svg>
+                              <span
+                                class="text-brand-500 truncate"
+                                title={model.alias}
+                              >
+                                {model.alias}
+                              </span>
+                            </Show>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeProviderModel(index())}
+                            class="p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                            title="Remove model"
+                          >
+                            <svg
+                              class="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </For>
+
+                    {/* Add new model */}
+                    <div class="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="text"
+                        value={newModelName()}
+                        onInput={(e) => setNewModelName(e.currentTarget.value)}
+                        placeholder="Provider model (e.g. anthropic/claude-opus-4.5)"
+                        class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                      />
+                      <input
+                        type="text"
+                        value={newModelAlias()}
+                        onInput={(e) => setNewModelAlias(e.currentTarget.value)}
+                        placeholder="Alias (e.g. claude-opus-4-5-20251101)"
+                        class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                      />
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={addProviderModel}
+                        disabled={!newModelName().trim()}
                       >
                         <svg
                           class="w-4 h-4"
@@ -337,54 +688,37 @@ export function SettingsPage() {
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
+                            d="M12 4v16m8-8H4"
                           />
                         </svg>
-                      </button>
+                      </Button>
                     </div>
-                  )}
-                </For>
+                  </div>
 
-                {/* Add new mapping */}
-                <div class="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={newMappingFrom()}
-                    onInput={(e) => setNewMappingFrom(e.currentTarget.value)}
-                    placeholder="From (e.g. claude-opus-4-5-20251101)"
-                    class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                  />
-                  <input
-                    type="text"
-                    value={newMappingTo()}
-                    onInput={(e) => setNewMappingTo(e.currentTarget.value)}
-                    placeholder="To (e.g. gemini-2.0-flash)"
-                    class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                  />
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={addModelMapping}
-                    disabled={
-                      !newMappingFrom().trim() || !newMappingTo().trim()
-                    }
-                  >
-                    <svg
-                      class="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  {/* Save / Clear buttons */}
+                  <div class="flex gap-2 pt-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={saveOpenAIProvider}
+                      disabled={
+                        !providerName().trim() ||
+                        !providerBaseUrl().trim() ||
+                        !providerApiKey().trim()
+                      }
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                  </Button>
+                      Save Provider
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearOpenAIProvider}
+                    >
+                      Clear
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </Show>
 
               <p class="text-xs text-gray-400 dark:text-gray-500">
                 After changing settings, restart the proxy for changes to take
