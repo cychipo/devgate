@@ -398,6 +398,12 @@ remote-management:
   allow-remote: false
   secret-key: "proxypal-mgmt-key"
   disable-control-panel: true
+
+# Amp CLI Integration - enables amp login and management routes
+# See: https://help.router-for.me/agent-client/amp-cli.html
+ampcode:
+  upstream-url: "https://ampcode.com"
+  restrict-management-to-localhost: true
 "#,
         config.port,
         config.debug,
