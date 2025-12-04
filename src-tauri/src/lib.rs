@@ -401,8 +401,10 @@ remote-management:
 
 # Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
+# Get API key from: https://ampcode.com/settings
 ampcode:
   upstream-url: "https://ampcode.com"
+  # upstream-api-key: "amp_..."  # Optional: set your Amp API key here if using API key auth
   restrict-management-to-localhost: true
 "#,
         config.port,
@@ -1885,7 +1887,7 @@ export CODE_ASSIST_ENDPOINT="{}"
             // See: https://help.router-for.me/agent-client/amp-cli.html
             let amp_endpoint = format!("http://localhost:{}", port);
             
-            // Write settings.json
+            // Write settings.json - amp.url is the only required setting
             let settings_content = format!(r#"{{
   "amp.url": "{}"
 }}"#, amp_endpoint);
@@ -1893,9 +1895,12 @@ export CODE_ASSIST_ENDPOINT="{}"
             let config_path = amp_dir.join("settings.json");
             std::fs::write(&config_path, &settings_content).map_err(|e| e.to_string())?;
             
-            // Also provide env var option
+            // Also provide env var option and API key instructions
             let shell_config = format!(r#"# ProxyPal - Amp CLI Configuration (alternative to settings.json)
 export AMP_URL="{}"
+
+# For non-interactive use (CI/CD), set your API key from https://ampcode.com/settings
+# export AMP_API_KEY="amp_..."
 "#, amp_endpoint);
             
             Ok(serde_json::json!({
@@ -1903,7 +1908,7 @@ export AMP_URL="{}"
                 "configType": "both",
                 "configPath": config_path.to_string_lossy(),
                 "shellConfig": shell_config,
-                "instructions": "Amp CLI has been configured. Run 'amp login' to authenticate, then 'amp' to start using it."
+                "instructions": "Amp CLI has been configured. Run 'amp login' to authenticate (opens browser), then 'amp' to start using it. For API key auth, get your key from https://ampcode.com/settings"
             }))
         },
         
