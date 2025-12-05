@@ -58,13 +58,13 @@ export async function importVertexCredential(
 }
 
 export interface AuthStatus {
-  claude: boolean;
-  openai: boolean;
-  gemini: boolean;
-  qwen: boolean;
-  iflow: boolean;
-  vertex: boolean;
-  antigravity: boolean;
+  claude: number;
+  openai: number;
+  gemini: number;
+  qwen: number;
+  iflow: number;
+  vertex: number;
+  antigravity: number;
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
@@ -570,6 +570,11 @@ export async function clearRequestHistory(): Promise<void> {
   return invoke("clear_request_history");
 }
 
+// Sync usage statistics from CLIProxyAPI (fetches real token counts)
+export async function syncUsageFromProxy(): Promise<RequestHistory> {
+  return invoke("sync_usage_from_proxy");
+}
+
 // Test agent connection
 export interface AgentTestResult {
   success: boolean;
@@ -824,4 +829,66 @@ export interface GroupedModels {
 
 export async function getAvailableModels(): Promise<AvailableModel[]> {
   return invoke("get_available_models");
+}
+
+// ============================================================================
+// Management API Settings (Runtime Updates)
+// ============================================================================
+
+// Max Retry Interval - controls backoff timing for retries
+export async function getMaxRetryInterval(): Promise<number> {
+  return invoke("get_max_retry_interval");
+}
+
+export async function setMaxRetryInterval(value: number): Promise<void> {
+  return invoke("set_max_retry_interval", { value });
+}
+
+// WebSocket Auth - toggle WebSocket authentication requirement
+export async function getWebsocketAuth(): Promise<boolean> {
+  return invoke("get_websocket_auth");
+}
+
+export async function setWebsocketAuth(value: boolean): Promise<void> {
+  return invoke("set_websocket_auth", { value });
+}
+
+// OAuth Excluded Models - block specific models per OAuth provider
+export type OAuthExcludedModels = Record<string, string[]>;
+
+export async function getOAuthExcludedModels(): Promise<OAuthExcludedModels> {
+  return invoke("get_oauth_excluded_models");
+}
+
+export async function setOAuthExcludedModels(
+  provider: string,
+  models: string[],
+): Promise<void> {
+  return invoke("set_oauth_excluded_models", { provider, models });
+}
+
+export async function deleteOAuthExcludedModels(
+  provider: string,
+): Promise<void> {
+  return invoke("delete_oauth_excluded_models", { provider });
+}
+
+// Raw Config YAML - for power users
+export async function getConfigYaml(): Promise<string> {
+  return invoke("get_config_yaml");
+}
+
+export async function setConfigYaml(yaml: string): Promise<void> {
+  return invoke("set_config_yaml", { yaml });
+}
+
+// Request Error Logs - view error-specific logs
+export async function getRequestErrorLogs(): Promise<string[]> {
+  return invoke("get_request_error_logs");
+}
+
+export async function getRequestErrorLogContent(
+  filename: string,
+): Promise<string> {
+  return invoke("get_request_error_log_content", { filename });
 }

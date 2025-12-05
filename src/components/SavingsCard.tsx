@@ -2,6 +2,7 @@ import { createSignal, createEffect, onMount, onCleanup, Show } from "solid-js";
 import {
   getRequestHistory,
   onRequestLog,
+  syncUsageFromProxy,
   type RequestHistory,
 } from "../lib/tauri";
 import { appStore } from "../stores/app";
@@ -75,10 +76,27 @@ export function SavingsCard() {
     totalCostUsd: 0,
   });
 
+  // Sync real token data from CLIProxyAPI
+  const syncFromProxy = async () => {
+    if (!proxyStatus().running) return;
+    try {
+      const synced = await syncUsageFromProxy();
+      setHistory(synced);
+    } catch (err) {
+      // Silently fail - proxy might not be ready yet
+      console.debug("Usage sync pending:", err);
+    }
+  };
+
   onMount(async () => {
     try {
       const savedHistory = await getRequestHistory();
       setHistory(savedHistory);
+
+      // If proxy is running, sync real token data immediately
+      if (proxyStatus().running) {
+        await syncFromProxy();
+      }
     } catch (err) {
       console.error("Failed to load request history:", err);
     }
@@ -92,11 +110,23 @@ export function SavingsCard() {
         totalTokensIn: prev.totalTokensIn + (log.tokensIn || 0),
         totalTokensOut: prev.totalTokensOut + (log.tokensOut || 0),
       }));
+
+      // Sync from proxy after a delay to get real token counts
+      // (tokens arrive slightly after the request log)
+      setTimeout(syncFromProxy, 1000);
     });
 
     onCleanup(() => {
       unlisten();
     });
+  });
+
+  // Sync when proxy status changes to running
+  createEffect(() => {
+    if (proxyStatus().running) {
+      // Small delay to let proxy initialize
+      setTimeout(syncFromProxy, 2000);
+    }
   });
 
   const hasActivity = () => history().requests.length > 0;

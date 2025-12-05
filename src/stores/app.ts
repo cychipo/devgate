@@ -30,13 +30,13 @@ function createAppStore() {
 
   // Auth state
   const [authStatus, setAuthStatus] = createSignal<AuthStatus>({
-    claude: false,
-    openai: false,
-    gemini: false,
-    qwen: false,
-    iflow: false,
-    vertex: false,
-    antigravity: false,
+    claude: 0,
+    openai: 0,
+    gemini: 0,
+    qwen: 0,
+    iflow: 0,
+    vertex: 0,
+    antigravity: 0,
   });
 
   // Config

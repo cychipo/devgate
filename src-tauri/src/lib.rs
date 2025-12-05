@@ -47,28 +47,28 @@ impl Default for ProxyStatus {
     }
 }
 
-// Auth status for different providers
+// Auth status for different providers (count of connected accounts)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthStatus {
-    pub claude: bool,
-    pub openai: bool,
-    pub gemini: bool,
-    pub qwen: bool,
-    pub iflow: bool,
-    pub vertex: bool,
-    pub antigravity: bool,
+    pub claude: u32,
+    pub openai: u32,
+    pub gemini: u32,
+    pub qwen: u32,
+    pub iflow: u32,
+    pub vertex: u32,
+    pub antigravity: u32,
 }
 
 impl Default for AuthStatus {
     fn default() -> Self {
         Self {
-            claude: false,
-            openai: false,
-            gemini: false,
-            qwen: false,
-            iflow: false,
-            vertex: false,
-            antigravity: false,
+            claude: 0,
+            openai: 0,
+            gemini: 0,
+            qwen: 0,
+            iflow: 0,
+            vertex: 0,
+            antigravity: 0,
         }
     }
 }
@@ -1829,6 +1829,84 @@ fn clear_request_history() -> Result<(), String> {
     save_request_history(&history)
 }
 
+// Sync usage statistics from CLIProxyAPI's Management API
+// This fetches real token counts that aren't available in GIN logs
+#[tauri::command]
+async fn sync_usage_from_proxy(state: State<'_, AppState>) -> Result<RequestHistory, String> {
+    let port = {
+        let config = state.config.lock().unwrap();
+        config.port
+    };
+    
+    let client = reqwest::Client::new();
+    let usage_url = format!("http://127.0.0.1:{}/v0/management/usage", port);
+    
+    let response = client
+        .get(&usage_url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch usage: {}. Is the proxy running?", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Usage API returned status: {}", response.status()));
+    }
+    
+    let body: serde_json::Value = response.json().await
+        .map_err(|e| format!("Failed to parse usage response: {}", e))?;
+    
+    // Extract token totals from CLIProxyAPI's usage response
+    // Structure: { "usage": { "total_tokens": N, "apis": { "POST /v1/messages": { "total_tokens": N, "models": {...} } } } }
+    let usage = body.get("usage").ok_or("Missing 'usage' field in response")?;
+    
+    // Calculate input/output token split from APIs data
+    let mut total_input: u64 = 0;
+    let mut total_output: u64 = 0;
+    let mut model_stats: std::collections::HashMap<String, (u64, u64, u64)> = std::collections::HashMap::new(); // (requests, input, output)
+    
+    if let Some(apis) = usage.get("apis").and_then(|v| v.as_object()) {
+        for (_api_path, api_data) in apis {
+            if let Some(models) = api_data.get("models").and_then(|v| v.as_object()) {
+                for (model_name, model_data) in models {
+                    if let Some(details) = model_data.get("details").and_then(|v| v.as_array()) {
+                        for detail in details {
+                            if let Some(tokens) = detail.get("tokens") {
+                                let input = tokens.get("input_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                                let output = tokens.get("output_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                                total_input += input;
+                                total_output += output;
+                                
+                                let entry = model_stats.entry(model_name.clone()).or_insert((0, 0, 0));
+                                entry.0 += 1; // request count
+                                entry.1 += input;
+                                entry.2 += output;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Calculate cost based on real token data
+    let mut total_cost: f64 = 0.0;
+    for (model_name, (_, input, output)) in &model_stats {
+        total_cost += estimate_request_cost(model_name, *input as u32, *output as u32);
+    }
+    
+    // Update local history with synced data
+    let mut history = load_request_history();
+    history.total_tokens_in = total_input;
+    history.total_tokens_out = total_output;
+    history.total_cost_usd = total_cost;
+    
+    // Save updated history
+    save_request_history(&history)?;
+    
+    Ok(history)
+}
+
 #[tauri::command]
 async fn open_oauth(app: tauri::AppHandle, state: State<'_, AppState>, provider: String) -> Result<String, String> {
     // Get proxy port from config
@@ -1940,7 +2018,7 @@ async fn refresh_auth_status(app: tauri::AppHandle, state: State<'_, AppState>) 
 
     let mut new_auth = AuthStatus::default();
 
-    // Scan auth directory for credential files
+    // Scan auth directory for credential files and count them per provider
     if let Ok(entries) = std::fs::read_dir(&auth_dir) {
         for entry in entries.flatten() {
             let filename = entry.file_name().to_string_lossy().to_lowercase();
@@ -1956,19 +2034,19 @@ async fn refresh_auth_status(app: tauri::AppHandle, state: State<'_, AppState>) 
             
             if filename.ends_with(".json") {
                 if filename.starts_with("claude-") || filename.starts_with("anthropic-") {
-                    new_auth.claude = true;
+                    new_auth.claude += 1;
                 } else if filename.starts_with("codex-") {
-                    new_auth.openai = true;
+                    new_auth.openai += 1;
                 } else if filename.starts_with("gemini-") {
-                    new_auth.gemini = true;
+                    new_auth.gemini += 1;
                 } else if filename.starts_with("qwen-") {
-                    new_auth.qwen = true;
+                    new_auth.qwen += 1;
                 } else if filename.starts_with("iflow-") {
-                    new_auth.iflow = true;
+                    new_auth.iflow += 1;
                 } else if filename.starts_with("vertex-") {
-                    new_auth.vertex = true;
+                    new_auth.vertex += 1;
                 } else if filename.starts_with("antigravity-") {
-                    new_auth.antigravity = true;
+                    new_auth.antigravity += 1;
                 }
             }
         }
@@ -2002,17 +2080,17 @@ async fn complete_oauth(
     // 3. Update the auth status
     let _ = code; // Mark as used
 
-    // For now, just mark as authenticated
+    // For now, just increment the account count
     {
         let mut auth = state.auth_status.lock().unwrap();
         match provider.as_str() {
-            "claude" => auth.claude = true,
-            "openai" => auth.openai = true,
-            "gemini" => auth.gemini = true,
-            "qwen" => auth.qwen = true,
-            "iflow" => auth.iflow = true,
-            "vertex" => auth.vertex = true,
-            "antigravity" => auth.antigravity = true,
+            "claude" => auth.claude += 1,
+            "openai" => auth.openai += 1,
+            "gemini" => auth.gemini += 1,
+            "qwen" => auth.qwen += 1,
+            "iflow" => auth.iflow += 1,
+            "vertex" => auth.vertex += 1,
+            "antigravity" => auth.antigravity += 1,
             _ => return Err(format!("Unknown provider: {}", provider)),
         }
 
@@ -2070,13 +2148,13 @@ async fn disconnect_provider(
     let mut auth = state.auth_status.lock().unwrap();
 
     match provider.as_str() {
-        "claude" => auth.claude = false,
-        "openai" => auth.openai = false,
-        "gemini" => auth.gemini = false,
-        "qwen" => auth.qwen = false,
-        "iflow" => auth.iflow = false,
-        "vertex" => auth.vertex = false,
-        "antigravity" => auth.antigravity = false,
+        "claude" => auth.claude = 0,
+        "openai" => auth.openai = 0,
+        "gemini" => auth.gemini = 0,
+        "qwen" => auth.qwen = 0,
+        "iflow" => auth.iflow = 0,
+        "vertex" => auth.vertex = 0,
+        "antigravity" => auth.antigravity = 0,
         _ => return Err(format!("Unknown provider: {}", provider)),
     }
 
@@ -2124,9 +2202,9 @@ async fn import_vertex_credential(
     std::fs::write(&dest_path, &content)
         .map_err(|e| format!("Failed to save credential: {}", e))?;
     
-    // Update auth status
+    // Update auth status (increment count)
     let mut auth = state.auth_status.lock().unwrap();
-    auth.vertex = true;
+    auth.vertex += 1;
     
     // Save to file
     save_auth_to_file(&auth)?;
@@ -2220,51 +2298,51 @@ async fn check_provider_health(state: State<'_, AppState>) -> Result<ProviderHea
     let proxy_healthy = response.map(|r| r.status().is_success()).unwrap_or(false);
     
     Ok(ProviderHealth {
-        claude: if auth.claude && proxy_healthy {
+        claude: if auth.claude > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.claude {
+        } else if auth.claude > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        openai: if auth.openai && proxy_healthy {
+        openai: if auth.openai > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.openai {
+        } else if auth.openai > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        gemini: if auth.gemini && proxy_healthy {
+        gemini: if auth.gemini > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.gemini {
+        } else if auth.gemini > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        qwen: if auth.qwen && proxy_healthy {
+        qwen: if auth.qwen > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.qwen {
+        } else if auth.qwen > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        iflow: if auth.iflow && proxy_healthy {
+        iflow: if auth.iflow > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.iflow {
+        } else if auth.iflow > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        vertex: if auth.vertex && proxy_healthy {
+        vertex: if auth.vertex > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.vertex {
+        } else if auth.vertex > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
         },
-        antigravity: if auth.antigravity && proxy_healthy {
+        antigravity: if auth.antigravity > 0 && proxy_healthy {
             HealthStatus { status: "healthy".to_string(), latency_ms: Some(latency), last_checked: timestamp }
-        } else if auth.antigravity {
+        } else if auth.antigravity > 0 {
             HealthStatus { status: "degraded".to_string(), latency_ms: None, last_checked: timestamp }
         } else {
             HealthStatus { status: "unconfigured".to_string(), latency_ms: None, last_checked: timestamp }
@@ -4070,6 +4148,306 @@ async fn delete_all_auth_files(state: State<'_, AppState>) -> Result<(), String>
 }
 
 // ============================================================================
+// Management API Settings (Runtime Updates)
+// ============================================================================
+
+// Get max retry interval from Management API
+#[tauri::command]
+async fn get_max_retry_interval(state: State<'_, AppState>) -> Result<i32, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "max-retry-interval");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get max retry interval: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(0); // Default to 0 if not set
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(json["max-retry-interval"].as_i64().unwrap_or(0) as i32)
+}
+
+// Set max retry interval via Management API
+#[tauri::command]
+async fn set_max_retry_interval(state: State<'_, AppState>, value: i32) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "max-retry-interval");
+    
+    let client = build_management_client();
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&serde_json::json!({ "value": value }))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set max retry interval: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set max retry interval: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Get WebSocket auth status from Management API
+#[tauri::command]
+async fn get_websocket_auth(state: State<'_, AppState>) -> Result<bool, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "ws-auth");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get WebSocket auth: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(false); // Default to false
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    Ok(json["ws-auth"].as_bool().unwrap_or(false))
+}
+
+// Set WebSocket auth via Management API
+#[tauri::command]
+async fn set_websocket_auth(state: State<'_, AppState>, value: bool) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "ws-auth");
+    
+    let client = build_management_client();
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&serde_json::json!({ "value": value }))
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set WebSocket auth: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set WebSocket auth: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Get OAuth excluded models from Management API
+#[tauri::command]
+async fn get_oauth_excluded_models(state: State<'_, AppState>) -> Result<std::collections::HashMap<String, Vec<String>>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "oauth-excluded-models");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get OAuth excluded models: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(std::collections::HashMap::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
+    // Response format: { "oauth-excluded-models": { "gemini": ["model1", "model2"], ... } }
+    if let Some(models) = json.get("oauth-excluded-models") {
+        if let Some(obj) = models.as_object() {
+            let mut result = std::collections::HashMap::new();
+            for (key, val) in obj {
+                if let Some(arr) = val.as_array() {
+                    let models: Vec<String> = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect();
+                    result.insert(key.clone(), models);
+                }
+            }
+            return Ok(result);
+        }
+    }
+    
+    Ok(std::collections::HashMap::new())
+}
+
+// Set OAuth excluded models for a provider via Management API
+#[tauri::command]
+async fn set_oauth_excluded_models(
+    state: State<'_, AppState>,
+    provider: String,
+    models: Vec<String>,
+) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "oauth-excluded-models");
+    
+    let client = build_management_client();
+    
+    // Use PATCH to update a single provider
+    let mut body = std::collections::HashMap::new();
+    body.insert(provider.clone(), models);
+    
+    let response = client
+        .patch(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set OAuth excluded models: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set OAuth excluded models: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Delete OAuth excluded models for a provider via Management API
+#[tauri::command]
+async fn delete_oauth_excluded_models(
+    state: State<'_, AppState>,
+    provider: String,
+) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = format!("{}?provider={}", get_management_url(port, "oauth-excluded-models"), provider);
+    
+    let client = build_management_client();
+    let response = client
+        .delete(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to delete OAuth excluded models: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to delete OAuth excluded models: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Get raw config YAML from Management API
+#[tauri::command]
+async fn get_config_yaml(state: State<'_, AppState>) -> Result<String, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "config.yaml");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get config YAML: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to get config YAML: {} - {}", status, text));
+    }
+    
+    response.text().await.map_err(|e| e.to_string())
+}
+
+// Set raw config YAML via Management API
+#[tauri::command]
+async fn set_config_yaml(state: State<'_, AppState>, yaml: String) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "config.yaml");
+    
+    let client = build_management_client();
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .header("Content-Type", "application/yaml")
+        .body(yaml)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set config YAML: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set config YAML: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+// Get request error logs from Management API
+#[tauri::command]
+async fn get_request_error_logs(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "request-error-logs");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get request error logs: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
+    // Response format: { "files": ["error_2025-01-01.log", ...] }
+    if let Some(files) = json.get("files") {
+        if let Some(arr) = files.as_array() {
+            let result: Vec<String> = arr
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect();
+            return Ok(result);
+        }
+    }
+    
+    Ok(Vec::new())
+}
+
+// Get content of a specific request error log file
+#[tauri::command]
+async fn get_request_error_log_content(state: State<'_, AppState>, filename: String) -> Result<String, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = format!("{}/{}", get_management_url(port, "request-error-logs"), filename);
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", "proxypal-mgmt-key")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get error log content: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to get error log content: {} - {}", status, text));
+    }
+    
+    response.text().await.map_err(|e| e.to_string())
+}
+
+// ============================================================================
 // Log Viewer Commands
 // ============================================================================
 
@@ -4437,6 +4815,7 @@ pub fn run() {
             get_request_history,
             add_request_to_history,
             clear_request_history,
+            sync_usage_from_proxy,
             test_agent_connection,
             get_available_models,
             test_openai_provider,
@@ -4467,7 +4846,40 @@ pub fn run() {
             // Log Viewer
             get_logs,
             clear_logs,
+            // Management API Settings
+            get_max_retry_interval,
+            set_max_retry_interval,
+            get_websocket_auth,
+            set_websocket_auth,
+            get_oauth_excluded_models,
+            set_oauth_excluded_models,
+            delete_oauth_excluded_models,
+            get_config_yaml,
+            set_config_yaml,
+            get_request_error_logs,
+            get_request_error_log_content,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                // Cleanup: Kill proxy and copilot processes before exit
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    // Kill cliproxyapi process
+                    if let Ok(mut process_guard) = state.proxy_process.lock() {
+                        if let Some(child) = process_guard.take() {
+                            println!("[ProxyPal] Shutting down cliproxyapi...");
+                            let _ = child.kill();
+                        }
+                    }
+                    // Kill copilot-api process
+                    if let Ok(mut process_guard) = state.copilot_process.lock() {
+                        if let Some(child) = process_guard.take() {
+                            println!("[ProxyPal] Shutting down copilot-api...");
+                            let _ = child.kill();
+                        }
+                    }
+                }
+            }
+        });
 }

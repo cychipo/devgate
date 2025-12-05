@@ -7,7 +7,7 @@ interface ProviderCardProps {
   provider: Provider;
   icon?: string;
   logo?: string;
-  connected: boolean;
+  connected: number; // Account count (0 = not connected, >0 = connected)
   connecting?: boolean;
   description: string;
   onConnect: (provider: Provider) => Promise<void>;
@@ -28,16 +28,19 @@ export function ProviderCard(props: ProviderCardProps) {
   // Use external connecting state if provided, otherwise use internal loading state
   const isLoading = () => props.connecting ?? loading();
 
+  // Check if connected (account count > 0)
+  const isConnected = () => props.connected > 0;
+
   return (
     <div
       class={`relative p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer hover:shadow-lg ${
-        props.connected
+        isConnected()
           ? "border-green-500 bg-green-50 dark:bg-green-950/20"
           : "border-gray-200 dark:border-gray-700 hover:border-brand-500"
       }`}
     >
       {/* Status indicator */}
-      {props.connected && (
+      {isConnected() && (
         <div class="absolute top-3 right-3">
           <span class="flex h-3 w-3">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -64,7 +67,7 @@ export function ProviderCard(props: ProviderCardProps) {
       </p>
 
       {/* Action */}
-      {props.connected ? (
+      {isConnected() ? (
         <div class="flex items-center text-green-600 dark:text-green-400 text-sm font-medium">
           <svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
             <path
@@ -73,7 +76,7 @@ export function ProviderCard(props: ProviderCardProps) {
               clip-rule="evenodd"
             />
           </svg>
-          Connected
+          Connected{props.connected > 1 ? ` (${props.connected})` : ""}
         </div>
       ) : (
         <Button

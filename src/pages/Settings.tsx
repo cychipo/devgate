@@ -7,7 +7,17 @@ import {
   AMP_MODEL_SLOTS,
   testOpenAIProvider,
   getAvailableModels,
+  getMaxRetryInterval,
+  setMaxRetryInterval,
+  getWebsocketAuth,
+  setWebsocketAuth,
+  getOAuthExcludedModels,
+  setOAuthExcludedModels,
+  deleteOAuthExcludedModels,
+  getConfigYaml,
+  setConfigYaml,
   type AvailableModel,
+  type OAuthExcludedModels,
 } from "../lib/tauri";
 import type {
   AmpOpenAIModel,
@@ -48,7 +58,28 @@ export function SettingsPage() {
     [],
   );
 
-  // Fetch available models when proxy is running
+  // Management API runtime settings
+  const [maxRetryInterval, setMaxRetryIntervalState] = createSignal<number>(0);
+  const [websocketAuth, setWebsocketAuthState] = createSignal<boolean>(false);
+  const [savingMaxRetryInterval, setSavingMaxRetryInterval] =
+    createSignal(false);
+  const [savingWebsocketAuth, setSavingWebsocketAuth] = createSignal(false);
+
+  // OAuth Excluded Models state
+  const [oauthExcludedModels, setOAuthExcludedModelsState] =
+    createSignal<OAuthExcludedModels>({});
+  const [loadingExcludedModels, setLoadingExcludedModels] = createSignal(false);
+  const [savingExcludedModels, setSavingExcludedModels] = createSignal(false);
+  const [newExcludedProvider, setNewExcludedProvider] = createSignal("");
+  const [newExcludedModel, setNewExcludedModel] = createSignal("");
+
+  // Raw YAML Config Editor state
+  const [yamlConfigExpanded, setYamlConfigExpanded] = createSignal(false);
+  const [yamlContent, setYamlContent] = createSignal("");
+  const [loadingYaml, setLoadingYaml] = createSignal(false);
+  const [savingYaml, setSavingYaml] = createSignal(false);
+
+  // Fetch available models and runtime settings when proxy is running
   createEffect(async () => {
     const proxyRunning = appStore.proxyStatus().running;
     if (proxyRunning) {
@@ -59,8 +90,159 @@ export function SettingsPage() {
         console.error("Failed to fetch available models:", error);
         setAvailableModels([]);
       }
+
+      // Fetch runtime settings from Management API
+      try {
+        const interval = await getMaxRetryInterval();
+        setMaxRetryIntervalState(interval);
+      } catch (error) {
+        console.error("Failed to fetch max retry interval:", error);
+      }
+
+      try {
+        const wsAuth = await getWebsocketAuth();
+        setWebsocketAuthState(wsAuth);
+      } catch (error) {
+        console.error("Failed to fetch WebSocket auth:", error);
+      }
+
+      // Fetch OAuth excluded models
+      try {
+        setLoadingExcludedModels(true);
+        const excluded = await getOAuthExcludedModels();
+        setOAuthExcludedModelsState(excluded);
+      } catch (error) {
+        console.error("Failed to fetch OAuth excluded models:", error);
+      } finally {
+        setLoadingExcludedModels(false);
+      }
     } else {
       setAvailableModels([]);
+    }
+  });
+
+  // Handler for max retry interval change
+  const handleMaxRetryIntervalChange = async (value: number) => {
+    setSavingMaxRetryInterval(true);
+    try {
+      await setMaxRetryInterval(value);
+      setMaxRetryIntervalState(value);
+      toastStore.success("Max retry interval updated");
+    } catch (error) {
+      toastStore.error("Failed to update max retry interval", String(error));
+    } finally {
+      setSavingMaxRetryInterval(false);
+    }
+  };
+
+  // Handler for WebSocket auth toggle
+  const handleWebsocketAuthChange = async (value: boolean) => {
+    setSavingWebsocketAuth(true);
+    try {
+      await setWebsocketAuth(value);
+      setWebsocketAuthState(value);
+      toastStore.success(
+        `WebSocket authentication ${value ? "enabled" : "disabled"}`,
+      );
+    } catch (error) {
+      toastStore.error("Failed to update WebSocket auth", String(error));
+    } finally {
+      setSavingWebsocketAuth(false);
+    }
+  };
+
+  // Handler for adding excluded model
+  const handleAddExcludedModel = async () => {
+    const provider = newExcludedProvider().trim().toLowerCase();
+    const model = newExcludedModel().trim();
+
+    if (!provider || !model) {
+      toastStore.error("Provider and model are required");
+      return;
+    }
+
+    setSavingExcludedModels(true);
+    try {
+      const current = oauthExcludedModels();
+      const existing = current[provider] || [];
+      if (existing.includes(model)) {
+        toastStore.error("Model already excluded for this provider");
+        return;
+      }
+
+      const updated = [...existing, model];
+      await setOAuthExcludedModels(provider, updated);
+      setOAuthExcludedModelsState({ ...current, [provider]: updated });
+      setNewExcludedModel("");
+      toastStore.success(`Model "${model}" excluded for ${provider}`);
+    } catch (error) {
+      toastStore.error("Failed to add excluded model", String(error));
+    } finally {
+      setSavingExcludedModels(false);
+    }
+  };
+
+  // Handler for removing excluded model
+  const handleRemoveExcludedModel = async (provider: string, model: string) => {
+    setSavingExcludedModels(true);
+    try {
+      const current = oauthExcludedModels();
+      const existing = current[provider] || [];
+      const updated = existing.filter((m) => m !== model);
+
+      if (updated.length === 0) {
+        await deleteOAuthExcludedModels(provider);
+        const newState = { ...current };
+        delete newState[provider];
+        setOAuthExcludedModelsState(newState);
+      } else {
+        await setOAuthExcludedModels(provider, updated);
+        setOAuthExcludedModelsState({ ...current, [provider]: updated });
+      }
+      toastStore.success(`Model "${model}" removed from ${provider}`);
+    } catch (error) {
+      toastStore.error("Failed to remove excluded model", String(error));
+    } finally {
+      setSavingExcludedModels(false);
+    }
+  };
+
+  // Raw YAML Config handlers
+  const loadYamlConfig = async () => {
+    if (!appStore.proxyStatus().running) return;
+    setLoadingYaml(true);
+    try {
+      const yaml = await getConfigYaml();
+      setYamlContent(yaml);
+    } catch (error) {
+      toastStore.error("Failed to load config YAML", String(error));
+    } finally {
+      setLoadingYaml(false);
+    }
+  };
+
+  const saveYamlConfig = async () => {
+    setSavingYaml(true);
+    try {
+      await setConfigYaml(yamlContent());
+      toastStore.success(
+        "Config YAML saved. Some changes may require a restart.",
+      );
+    } catch (error) {
+      toastStore.error("Failed to save config YAML", String(error));
+    } finally {
+      setSavingYaml(false);
+    }
+  };
+
+  // Load YAML when expanding the editor
+  createEffect(() => {
+    if (
+      yamlConfigExpanded() &&
+      appStore.proxyStatus().running &&
+      !yamlContent()
+    ) {
+      loadYamlConfig();
     }
   });
 
@@ -553,6 +735,55 @@ export function SettingsPage() {
                   (0-10)
                 </p>
               </label>
+
+              <Show when={appStore.proxyStatus().running}>
+                <div class="border-t border-gray-200 dark:border-gray-700" />
+
+                <label class="block">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                    Max Retry Interval (seconds)
+                    <Show when={savingMaxRetryInterval()}>
+                      <svg
+                        class="w-4 h-4 animate-spin text-brand-500"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        />
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                    </Show>
+                  </span>
+                  <input
+                    type="number"
+                    value={maxRetryInterval()}
+                    onInput={(e) => {
+                      const val = Math.max(
+                        0,
+                        parseInt(e.currentTarget.value) || 0,
+                      );
+                      handleMaxRetryIntervalChange(val);
+                    }}
+                    disabled={savingMaxRetryInterval()}
+                    class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth disabled:opacity-50"
+                    min="0"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Maximum wait time between retries in seconds (0 = no limit).
+                    Updates live without restart.
+                  </p>
+                </label>
+              </Show>
             </div>
           </div>
 
@@ -612,61 +843,214 @@ export function SettingsPage() {
                       const currentTarget = () => mapping()?.to || "";
 
                       return (
-                        <div class="flex items-center gap-3 p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                          {/* Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={isEnabled()}
-                            onChange={(e) => {
-                              const checked = e.currentTarget.checked;
-                              if (checked) {
-                                // Enable with first available target or same model
+                        <div class="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          {/* Mobile: Stack vertically, Desktop: Single row */}
+                          <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                            {/* Left side: Checkbox + Slot name */}
+                            <div class="flex items-center gap-2 shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={isEnabled()}
+                                onChange={(e) => {
+                                  const checked = e.currentTarget.checked;
+                                  if (checked) {
+                                    const { customModels, builtInModels } =
+                                      getAvailableTargetModels();
+                                    const defaultTarget =
+                                      customModels[0]?.value ||
+                                      builtInModels.google[0]?.value ||
+                                      slot.fromModel;
+                                    updateSlotMapping(
+                                      slot.id,
+                                      defaultTarget,
+                                      true,
+                                    );
+                                  } else {
+                                    updateSlotMapping(slot.id, "", false);
+                                  }
+                                }}
+                                class="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-20">
+                                {slot.name}
+                              </span>
+                            </div>
+
+                            {/* Right side: From -> To mapping */}
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                              {/* From model (readonly) - fixed width, truncate on small screens */}
+                              <div
+                                class="w-24 sm:w-28 shrink-0 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-600 dark:text-gray-400 truncate"
+                                title={slot.fromLabel}
+                              >
+                                {slot.fromLabel}
+                              </div>
+
+                              {/* Arrow */}
+                              <span class="text-gray-400 text-xs shrink-0">
+                                →
+                              </span>
+
+                              {/* To model (dropdown) */}
+                              {(() => {
                                 const { customModels, builtInModels } =
                                   getAvailableTargetModels();
-                                const defaultTarget =
-                                  customModels[0]?.value ||
-                                  builtInModels.google[0]?.value ||
-                                  slot.fromModel;
-                                updateSlotMapping(slot.id, defaultTarget, true);
-                              } else {
-                                updateSlotMapping(slot.id, "", false);
-                              }
-                            }}
-                            class="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                          />
-
-                          {/* Slot name */}
-                          <span class="w-16 text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {slot.name}
-                          </span>
-
-                          {/* From model (readonly) */}
-                          <div class="flex-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400">
-                            {slot.fromLabel}
+                                return (
+                                  <select
+                                    value={currentTarget()}
+                                    onChange={(e) => {
+                                      const newTarget = e.currentTarget.value;
+                                      updateSlotMapping(
+                                        slot.id,
+                                        newTarget,
+                                        true,
+                                      );
+                                    }}
+                                    disabled={!isEnabled()}
+                                    class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
+                                      !isEnabled()
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : ""
+                                    }`}
+                                  >
+                                    <option value="">Select target...</option>
+                                    <Show when={customModels.length > 0}>
+                                      <optgroup label="Custom Provider">
+                                        <For each={customModels}>
+                                          {(model) => (
+                                            <option value={model.value}>
+                                              {model.label}
+                                            </option>
+                                          )}
+                                        </For>
+                                      </optgroup>
+                                    </Show>
+                                    <optgroup label="Anthropic">
+                                      <For each={builtInModels.anthropic}>
+                                        {(model) => (
+                                          <option value={model.value}>
+                                            {model.label}
+                                          </option>
+                                        )}
+                                      </For>
+                                    </optgroup>
+                                    <optgroup label="Google">
+                                      <For each={builtInModels.google}>
+                                        {(model) => (
+                                          <option value={model.value}>
+                                            {model.label}
+                                          </option>
+                                        )}
+                                      </For>
+                                    </optgroup>
+                                    <optgroup label="OpenAI">
+                                      <For each={builtInModels.openai}>
+                                        {(model) => (
+                                          <option value={model.value}>
+                                            {model.label}
+                                          </option>
+                                        )}
+                                      </For>
+                                    </optgroup>
+                                    <optgroup label="Qwen">
+                                      <For each={builtInModels.qwen}>
+                                        {(model) => (
+                                          <option value={model.value}>
+                                            {model.label}
+                                          </option>
+                                        )}
+                                      </For>
+                                    </optgroup>
+                                    <Show
+                                      when={builtInModels.copilot.length > 0}
+                                    >
+                                      <optgroup label="GitHub Copilot">
+                                        <For each={builtInModels.copilot}>
+                                          {(model) => (
+                                            <option value={model.value}>
+                                              {model.label}
+                                            </option>
+                                          )}
+                                        </For>
+                                      </optgroup>
+                                    </Show>
+                                  </select>
+                                );
+                              })()}
+                            </div>
                           </div>
+                        </div>
+                      );
+                    }}
+                  </For>
+                </div>
 
-                          {/* Arrow */}
-                          <span class="text-gray-400 text-sm">TO</span>
+                {/* Custom Mappings Section */}
+                <div class="pt-2">
+                  <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                    Custom model mappings (for models not in predefined slots)
+                  </p>
 
-                          {/* To model (dropdown) - organized by provider */}
-                          {(() => {
-                            const { customModels, builtInModels } =
-                              getAvailableTargetModels();
-                            return (
-                              <select
-                                value={currentTarget()}
+                  {/* Existing custom mappings */}
+                  <For each={getCustomMappings()}>
+                    {(mapping) => {
+                      const { customModels, builtInModels } =
+                        getAvailableTargetModels();
+                      return (
+                        <div class="p-3 mb-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                          <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                            {/* Checkbox */}
+                            <div class="flex items-center gap-2 shrink-0">
+                              <input
+                                type="checkbox"
+                                checked={mapping.enabled !== false}
                                 onChange={(e) => {
-                                  const newTarget = e.currentTarget.value;
-                                  updateSlotMapping(slot.id, newTarget, true);
+                                  updateCustomMapping(
+                                    mapping.from,
+                                    mapping.to,
+                                    e.currentTarget.checked,
+                                  );
                                 }}
-                                disabled={!isEnabled()}
-                                class={`flex-1 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
-                                  !isEnabled()
+                                class="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                              />
+                              <span class="text-xs text-gray-500 dark:text-gray-400 sm:hidden">
+                                Custom
+                              </span>
+                            </div>
+
+                            {/* Mapping content */}
+                            <div class="flex items-center gap-2 flex-1 min-w-0">
+                              {/* From model (readonly) */}
+                              <div
+                                class="w-28 sm:w-32 shrink-0 px-2 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-xs text-gray-600 dark:text-gray-400 font-mono truncate"
+                                title={mapping.from}
+                              >
+                                {mapping.from}
+                              </div>
+
+                              {/* Arrow */}
+                              <span class="text-gray-400 text-xs shrink-0">
+                                →
+                              </span>
+
+                              {/* To model (dropdown) */}
+                              <select
+                                value={mapping.to}
+                                onChange={(e) => {
+                                  updateCustomMapping(
+                                    mapping.from,
+                                    e.currentTarget.value,
+                                    mapping.enabled !== false,
+                                  );
+                                }}
+                                disabled={mapping.enabled === false}
+                                class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
+                                  mapping.enabled === false
                                     ? "opacity-50 cursor-not-allowed"
                                     : ""
                                 }`}
                               >
-                                <option value="">Select target model...</option>
+                                <option value="">Select target...</option>
                                 <Show when={customModels.length > 0}>
                                   <optgroup label="Custom Provider">
                                     <For each={customModels}>
@@ -726,67 +1110,64 @@ export function SettingsPage() {
                                   </optgroup>
                                 </Show>
                               </select>
-                            );
-                          })()}
+
+                              {/* Delete button */}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  removeCustomMapping(mapping.from)
+                                }
+                                class="p-1.5 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+                                title="Remove mapping"
+                              >
+                                <svg
+                                  class="w-4 h-4"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       );
                     }}
                   </For>
-                </div>
 
-                {/* Custom Mappings Section */}
-                <div class="pt-2">
-                  <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">
-                    Custom model mappings (for models not in predefined slots)
-                  </p>
-
-                  {/* Existing custom mappings */}
-                  <For each={getCustomMappings()}>
-                    {(mapping) => {
-                      const { customModels, builtInModels } =
-                        getAvailableTargetModels();
-                      return (
-                        <div class="flex items-center gap-3 p-3 mb-2 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                          {/* Checkbox */}
-                          <input
-                            type="checkbox"
-                            checked={mapping.enabled !== false}
-                            onChange={(e) => {
-                              updateCustomMapping(
-                                mapping.from,
-                                mapping.to,
-                                e.currentTarget.checked,
-                              );
-                            }}
-                            class="w-4 h-4 text-brand-500 bg-gray-100 border-gray-300 rounded focus:ring-brand-500 dark:focus:ring-brand-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                          />
-
-                          {/* From model (readonly) */}
-                          <div class="flex-1 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 font-mono truncate">
-                            {mapping.from}
-                          </div>
-
-                          {/* Arrow */}
-                          <span class="text-gray-400 text-sm">TO</span>
-
-                          {/* To model (dropdown) */}
+                  {/* Add new custom mapping */}
+                  <div class="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                      <input
+                        type="text"
+                        value={newMappingFrom()}
+                        onInput={(e) =>
+                          setNewMappingFrom(e.currentTarget.value)
+                        }
+                        placeholder="From model (e.g. my-custom-model)"
+                        class="flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
+                      />
+                      <span class="text-gray-400 text-xs shrink-0 hidden sm:inline">
+                        →
+                      </span>
+                      {(() => {
+                        const { customModels, builtInModels } =
+                          getAvailableTargetModels();
+                        return (
                           <select
-                            value={mapping.to}
-                            onChange={(e) => {
-                              updateCustomMapping(
-                                mapping.from,
-                                e.currentTarget.value,
-                                mapping.enabled !== false,
-                              );
-                            }}
-                            disabled={mapping.enabled === false}
-                            class={`flex-1 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth ${
-                              mapping.enabled === false
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
+                            value={newMappingTo()}
+                            onChange={(e) =>
+                              setNewMappingTo(e.currentTarget.value)
+                            }
+                            class="flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
                           >
-                            <option value="">Select target model...</option>
+                            <option value="">Select target...</option>
                             <Show when={customModels.length > 0}>
                               <optgroup label="Custom Provider">
                                 <For each={customModels}>
@@ -846,138 +1227,32 @@ export function SettingsPage() {
                               </optgroup>
                             </Show>
                           </select>
-
-                          {/* Delete button */}
-                          <button
-                            type="button"
-                            onClick={() => removeCustomMapping(mapping.from)}
-                            class="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
-                            title="Remove mapping"
-                          >
-                            <svg
-                              class="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      );
-                    }}
-                  </For>
-
-                  {/* Add new custom mapping */}
-                  <div class="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
-                    <input
-                      type="text"
-                      value={newMappingFrom()}
-                      onInput={(e) => setNewMappingFrom(e.currentTarget.value)}
-                      placeholder="From model (e.g. my-custom-model)"
-                      class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                    />
-                    <span class="text-gray-400 text-xs">TO</span>
-                    {(() => {
-                      const { customModels, builtInModels } =
-                        getAvailableTargetModels();
-                      return (
-                        <select
-                          value={newMappingTo()}
-                          onChange={(e) =>
-                            setNewMappingTo(e.currentTarget.value)
-                          }
-                          class="flex-1 px-2 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth"
-                        >
-                          <option value="">Select target...</option>
-                          <Show when={customModels.length > 0}>
-                            <optgroup label="Custom Provider">
-                              <For each={customModels}>
-                                {(model) => (
-                                  <option value={model.value}>
-                                    {model.label}
-                                  </option>
-                                )}
-                              </For>
-                            </optgroup>
-                          </Show>
-                          <optgroup label="Anthropic">
-                            <For each={builtInModels.anthropic}>
-                              {(model) => (
-                                <option value={model.value}>
-                                  {model.label}
-                                </option>
-                              )}
-                            </For>
-                          </optgroup>
-                          <optgroup label="Google">
-                            <For each={builtInModels.google}>
-                              {(model) => (
-                                <option value={model.value}>
-                                  {model.label}
-                                </option>
-                              )}
-                            </For>
-                          </optgroup>
-                          <optgroup label="OpenAI">
-                            <For each={builtInModels.openai}>
-                              {(model) => (
-                                <option value={model.value}>
-                                  {model.label}
-                                </option>
-                              )}
-                            </For>
-                          </optgroup>
-                          <optgroup label="Qwen">
-                            <For each={builtInModels.qwen}>
-                              {(model) => (
-                                <option value={model.value}>
-                                  {model.label}
-                                </option>
-                              )}
-                            </For>
-                          </optgroup>
-                          <Show when={builtInModels.copilot.length > 0}>
-                            <optgroup label="GitHub Copilot">
-                              <For each={builtInModels.copilot}>
-                                {(model) => (
-                                  <option value={model.value}>
-                                    {model.label}
-                                  </option>
-                                )}
-                              </For>
-                            </optgroup>
-                          </Show>
-                        </select>
-                      );
-                    })()}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={addCustomMapping}
-                      disabled={
-                        !newMappingFrom().trim() || !newMappingTo().trim()
-                      }
-                    >
-                      <svg
-                        class="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
+                        );
+                      })()}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={addCustomMapping}
+                        disabled={
+                          !newMappingFrom().trim() || !newMappingTo().trim()
+                        }
+                        class="shrink-0"
                       >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 4v16m8-8H4"
-                        />
-                      </svg>
-                    </Button>
+                        <svg
+                          class="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 4v16m8-8H4"
+                          />
+                        </svg>
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1335,6 +1610,64 @@ export function SettingsPage() {
                   handleConfigChange("loggingToFile", checked)
                 }
               />
+
+              <Show when={appStore.proxyStatus().running}>
+                <div class="border-t border-gray-200 dark:border-gray-700" />
+
+                <div class="flex items-center justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        WebSocket Authentication
+                      </span>
+                      <Show when={savingWebsocketAuth()}>
+                        <svg
+                          class="w-4 h-4 animate-spin text-brand-500"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            class="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            stroke-width="4"
+                          />
+                          <path
+                            class="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                      </Show>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Require authentication for WebSocket connections. Updates
+                      live without restart.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={websocketAuth()}
+                    disabled={savingWebsocketAuth()}
+                    onClick={() => handleWebsocketAuthChange(!websocketAuth())}
+                    class={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+                      websocketAuth()
+                        ? "bg-brand-600"
+                        : "bg-gray-200 dark:bg-gray-700"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      class={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        websocketAuth() ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </Show>
             </div>
           </div>
 
@@ -1366,6 +1699,157 @@ export function SettingsPage() {
               />
             </div>
           </div>
+
+          {/* OAuth Excluded Models */}
+          <Show when={appStore.proxyStatus().running}>
+            <div class="space-y-4">
+              <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                OAuth Excluded Models
+              </h2>
+
+              <div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                  Block specific models from being used with OAuth providers.
+                  Updates live without restart.
+                </p>
+
+                {/* Add new exclusion form */}
+                <div class="flex gap-2">
+                  <select
+                    value={newExcludedProvider()}
+                    onChange={(e) =>
+                      setNewExcludedProvider(e.currentTarget.value)
+                    }
+                    class="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                  >
+                    <option value="">Select provider...</option>
+                    <option value="gemini">Gemini</option>
+                    <option value="claude">Claude</option>
+                    <option value="qwen">Qwen</option>
+                    <option value="iflow">iFlow</option>
+                    <option value="openai">OpenAI</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={newExcludedModel()}
+                    onInput={(e) => setNewExcludedModel(e.currentTarget.value)}
+                    placeholder="Model name (e.g., gemini-2.0-flash)"
+                    class="flex-[2] px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") handleAddExcludedModel();
+                    }}
+                  />
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleAddExcludedModel}
+                    disabled={
+                      savingExcludedModels() ||
+                      !newExcludedProvider() ||
+                      !newExcludedModel()
+                    }
+                  >
+                    <Show
+                      when={savingExcludedModels()}
+                      fallback={<span>Add</span>}
+                    >
+                      <svg
+                        class="w-4 h-4 animate-spin"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        />
+                        <path
+                          class="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    </Show>
+                  </Button>
+                </div>
+
+                {/* Current exclusions */}
+                <Show when={loadingExcludedModels()}>
+                  <div class="text-center py-4 text-gray-500">Loading...</div>
+                </Show>
+
+                <Show
+                  when={
+                    !loadingExcludedModels() &&
+                    Object.keys(oauthExcludedModels()).length === 0
+                  }
+                >
+                  <div class="text-center py-4 text-gray-400 dark:text-gray-500 text-sm">
+                    No models excluded yet
+                  </div>
+                </Show>
+
+                <Show
+                  when={
+                    !loadingExcludedModels() &&
+                    Object.keys(oauthExcludedModels()).length > 0
+                  }
+                >
+                  <div class="space-y-3">
+                    <For each={Object.entries(oauthExcludedModels())}>
+                      {([provider, models]) => (
+                        <div class="space-y-2">
+                          <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">
+                              {provider}
+                            </span>
+                            <span class="text-xs text-gray-400">
+                              ({models.length} excluded)
+                            </span>
+                          </div>
+                          <div class="flex flex-wrap gap-2">
+                            <For each={models}>
+                              {(model) => (
+                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-md text-xs">
+                                  {model}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveExcludedModel(provider, model)
+                                    }
+                                    disabled={savingExcludedModels()}
+                                    class="hover:text-red-900 dark:hover:text-red-300 disabled:opacity-50"
+                                    title="Remove"
+                                  >
+                                    <svg
+                                      class="w-3 h-3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"
+                                      />
+                                    </svg>
+                                  </button>
+                                </span>
+                              )}
+                            </For>
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </Show>
+              </div>
+            </div>
+          </Show>
 
           {/* Accounts */}
           <div class="space-y-4">
@@ -1567,6 +2051,142 @@ export function SettingsPage() {
             </div>
           </div>
 
+          {/* Raw YAML Config Editor (Power Users) */}
+          <Show when={appStore.proxyStatus().running}>
+            <div class="space-y-4">
+              <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Raw Configuration
+              </h2>
+
+              <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                <button
+                  type="button"
+                  onClick={() => setYamlConfigExpanded(!yamlConfigExpanded())}
+                  class="w-full flex items-center justify-between text-left"
+                >
+                  <div>
+                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      YAML Config Editor
+                    </p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Advanced: Edit the raw CLIProxyAPI configuration
+                    </p>
+                  </div>
+                  <svg
+                    class={`w-5 h-5 text-gray-400 transition-transform ${yamlConfigExpanded() ? "rotate-180" : ""}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                <Show when={yamlConfigExpanded()}>
+                  <div class="mt-4 space-y-3">
+                    <div class="flex items-center gap-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg">
+                      <svg
+                        class="w-4 h-4 shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                      <span>
+                        Be careful! Invalid YAML can break the proxy. Changes
+                        apply immediately but some may require a restart.
+                      </span>
+                    </div>
+
+                    <Show when={loadingYaml()}>
+                      <div class="text-center py-8 text-gray-500">
+                        Loading configuration...
+                      </div>
+                    </Show>
+
+                    <Show when={!loadingYaml()}>
+                      <textarea
+                        value={yamlContent()}
+                        onInput={(e) => setYamlContent(e.currentTarget.value)}
+                        class="w-full h-96 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-mono focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth resize-y"
+                        placeholder="Loading..."
+                        spellcheck={false}
+                      />
+
+                      <div class="flex items-center justify-between">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={loadYamlConfig}
+                          disabled={loadingYaml()}
+                        >
+                          <svg
+                            class="w-4 h-4 mr-1.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                            />
+                          </svg>
+                          Reload
+                        </Button>
+
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          onClick={saveYamlConfig}
+                          disabled={savingYaml() || loadingYaml()}
+                        >
+                          <Show
+                            when={savingYaml()}
+                            fallback={<span>Save Changes</span>}
+                          >
+                            <svg
+                              class="w-4 h-4 animate-spin mr-1.5"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                            >
+                              <circle
+                                class="opacity-25"
+                                cx="12"
+                                cy="12"
+                                r="10"
+                                stroke="currentColor"
+                                stroke-width="4"
+                              />
+                              <path
+                                class="opacity-75"
+                                fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                              />
+                            </svg>
+                            Saving...
+                          </Show>
+                        </Button>
+                      </div>
+                    </Show>
+                  </div>
+                </Show>
+              </div>
+            </div>
+          </Show>
+
           {/* About */}
           <div class="space-y-4">
             <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -1581,7 +2201,7 @@ export function SettingsPage() {
                 ProxyPal
               </h3>
               <p class="text-sm text-gray-500 dark:text-gray-400">
-                Version 0.1.0
+                Version 0.1.5
               </p>
               <p class="text-xs text-gray-400 dark:text-gray-500 mt-2">
                 Built with Tauri, SolidJS, and TailwindCSS
