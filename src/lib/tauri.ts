@@ -220,6 +220,7 @@ export interface AmpOpenAIModel {
 
 // OpenAI-compatible provider configuration for Amp
 export interface AmpOpenAIProvider {
+  id: string; // Unique identifier (UUID)
   name: string;
   baseUrl: string;
   apiKey: string;
@@ -275,7 +276,8 @@ export interface AppConfig {
   loggingToFile: boolean;
   ampApiKey: string;
   ampModelMappings: AmpModelMapping[];
-  ampOpenaiProvider?: AmpOpenAIProvider;
+  ampOpenaiProvider?: AmpOpenAIProvider; // Deprecated: for migration only
+  ampOpenaiProviders: AmpOpenAIProvider[]; // Array of custom providers
   ampRoutingMode: string; // "mappings" or "openai"
   copilot: CopilotConfig;
 }

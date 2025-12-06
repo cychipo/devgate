@@ -103,7 +103,9 @@ pub struct AppConfig {
     #[serde(default)]
     pub amp_model_mappings: Vec<AmpModelMapping>,
     #[serde(default)]
-    pub amp_openai_provider: Option<AmpOpenAIProvider>,
+    pub amp_openai_provider: Option<AmpOpenAIProvider>, // DEPRECATED: Use amp_openai_providers
+    #[serde(default)]
+    pub amp_openai_providers: Vec<AmpOpenAIProvider>, // Multiple custom OpenAI-compatible providers
     #[serde(default)]
     pub amp_routing_mode: String, // "mappings" or "openai" - default is "mappings"
     #[serde(default)]
@@ -144,11 +146,17 @@ pub struct AmpOpenAIModel {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AmpOpenAIProvider {
+    #[serde(default = "generate_uuid")]
+    pub id: String,
     pub name: String,
     pub base_url: String,
     pub api_key: String,
     #[serde(default)]
     pub models: Vec<AmpOpenAIModel>,
+}
+
+fn generate_uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 // GitHub Copilot proxy configuration (via copilot-api)
@@ -225,6 +233,7 @@ impl Default for AppConfig {
             amp_api_key: String::new(),
             amp_model_mappings: Vec::new(),
             amp_openai_provider: None,
+            amp_openai_providers: Vec::new(),
             amp_routing_mode: "mappings".to_string(),
             copilot: CopilotConfig::default(),
         }
@@ -395,7 +404,25 @@ fn load_config() -> AppConfig {
     let path = get_config_path();
     if path.exists() {
         if let Ok(data) = std::fs::read_to_string(&path) {
-            if let Ok(config) = serde_json::from_str(&data) {
+            if let Ok(mut config) = serde_json::from_str::<AppConfig>(&data) {
+                // Migration: Convert deprecated amp_openai_provider to amp_openai_providers array
+                if let Some(old_provider) = config.amp_openai_provider.take() {
+                    // Only migrate if the new array is empty (first-time migration)
+                    if config.amp_openai_providers.is_empty() {
+                        // Ensure the migrated provider has an ID
+                        let provider_with_id = if old_provider.id.is_empty() {
+                            AmpOpenAIProvider {
+                                id: generate_uuid(),
+                                ..old_provider
+                            }
+                        } else {
+                            old_provider
+                        };
+                        config.amp_openai_providers.push(provider_with_id);
+                        // Save the migrated config
+                        let _ = save_config_to_file(&config);
+                    }
+                }
                 return config;
             }
         }
@@ -808,14 +835,14 @@ async fn start_proxy(
         mappings
     };
     
-    // Build openai-compatibility section combining custom provider and copilot
+    // Build openai-compatibility section combining custom providers and copilot
     // This defines OpenAI-compatible providers with custom base URLs and model aliases
     let mut openai_compat_entries = Vec::new();
     
-    // Add custom provider if configured
-    if let Some(ref provider) = config.amp_openai_provider {
+    // Add custom providers if configured (multiple providers support)
+    for provider in &config.amp_openai_providers {
         if !provider.name.is_empty() && !provider.base_url.is_empty() && !provider.api_key.is_empty() {
-            let mut entry = String::from("  # Custom OpenAI-compatible provider\n");
+            let mut entry = format!("  # Custom OpenAI-compatible provider: {}\n", provider.name);
             entry.push_str(&format!("  - name: \"{}\"\n", provider.name));
             entry.push_str(&format!("    base-url: \"{}\"\n", provider.base_url));
             entry.push_str("    api-key-entries:\n");

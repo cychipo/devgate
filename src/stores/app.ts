@@ -55,6 +55,7 @@ function createAppStore() {
     ampApiKey: "",
     ampModelMappings: [],
     ampOpenaiProvider: undefined,
+    ampOpenaiProviders: [],
     ampRoutingMode: "mappings",
     copilot: {
       enabled: false,
