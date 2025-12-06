@@ -43,6 +43,10 @@ pnpm tauri dev
 - **Backend**: Rust + Tauri v2
 - **Proxy**: CLIProxyAPI (bundled)
 
+## Support
+
+If you find ProxyPal useful, consider [buying me a coffee](https://buymeacoffee.com/heyhuynhgiabuu).
+
 ## License
 
 MIT
