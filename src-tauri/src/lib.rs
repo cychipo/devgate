@@ -110,6 +110,13 @@ pub struct AppConfig {
     pub amp_routing_mode: String, // "mappings" or "openai" - default is "mappings"
     #[serde(default)]
     pub copilot: CopilotConfig,
+    // Persisted API keys for providers (stored in config, synced to CLIProxyAPI on startup)
+    #[serde(default)]
+    pub claude_api_keys: Vec<ClaudeApiKey>,
+    #[serde(default)]
+    pub gemini_api_keys: Vec<GeminiApiKey>,
+    #[serde(default)]
+    pub codex_api_keys: Vec<CodexApiKey>,
 }
 
 fn default_usage_stats_enabled() -> bool {
@@ -236,6 +243,9 @@ impl Default for AppConfig {
             amp_openai_providers: Vec::new(),
             amp_routing_mode: "mappings".to_string(),
             copilot: CopilotConfig::default(),
+            claude_api_keys: Vec::new(),
+            gemini_api_keys: Vec::new(),
+            codex_api_keys: Vec::new(),
         }
     }
 }
@@ -920,30 +930,98 @@ async fn start_proxy(
         section
     };
     
-    // Build copilot claude-api-key section if enabled (for Claude models)
-    let copilot_claude_section = if config.copilot.enabled {
-        let port = config.copilot.port;
-        let mut section = String::from("# GitHub Copilot Claude models (via copilot-api)\nclaude-api-key:\n");
-        section.push_str("  - api-key: \"dummy\"\n");
-        section.push_str(&format!("    base-url: \"http://localhost:{}\"\n", port));
-        section.push_str("    models:\n");
-        // Claude models (GA)
-        section.push_str("      - alias: \"copilot-claude-haiku-4.5\"\n");
-        section.push_str("        name: \"claude-haiku-4.5\"\n");
-        section.push_str("      - alias: \"copilot-claude-opus-4.1\"\n");
-        section.push_str("        name: \"claude-opus-4.1\"\n");
-        section.push_str("      - alias: \"copilot-claude-sonnet-4\"\n");
-        section.push_str("        name: \"claude-sonnet-4\"\n");
-        section.push_str("      - alias: \"copilot-claude-sonnet-4.5\"\n");
-        section.push_str("        name: \"claude-sonnet-4.5\"\n");
-        // Claude models (Preview)
-        section.push_str("      - alias: \"copilot-claude-opus-4.5\"\n");
-        section.push_str("        name: \"claude-opus-4.5\"\n");
-        section.push_str("    proxy-url: \"\"\n");
-        section.push_str("\n");
-        section
-    } else {
+    // Build claude-api-key section combining copilot and user's persisted keys
+    let claude_api_key_section = {
+        let mut entries: Vec<String> = Vec::new();
+        
+        // Add copilot entry if enabled
+        if config.copilot.enabled {
+            let port = config.copilot.port;
+            let mut entry = String::new();
+            entry.push_str("  - api-key: \"dummy\"\n");
+            entry.push_str(&format!("    base-url: \"http://localhost:{}\"\n", port));
+            entry.push_str("    models:\n");
+            // Claude models (GA)
+            entry.push_str("      - alias: \"copilot-claude-haiku-4.5\"\n");
+            entry.push_str("        name: \"claude-haiku-4.5\"\n");
+            entry.push_str("      - alias: \"copilot-claude-opus-4.1\"\n");
+            entry.push_str("        name: \"claude-opus-4.1\"\n");
+            entry.push_str("      - alias: \"copilot-claude-sonnet-4\"\n");
+            entry.push_str("        name: \"claude-sonnet-4\"\n");
+            entry.push_str("      - alias: \"copilot-claude-sonnet-4.5\"\n");
+            entry.push_str("        name: \"claude-sonnet-4.5\"\n");
+            // Claude models (Preview)
+            entry.push_str("      - alias: \"copilot-claude-opus-4.5\"\n");
+            entry.push_str("        name: \"claude-opus-4.5\"\n");
+            entry.push_str("    proxy-url: \"\"\n");
+            entries.push(entry);
+        }
+        
+        // Add user's persisted Claude API keys
+        for key in &config.claude_api_keys {
+            let mut entry = String::new();
+            entry.push_str(&format!("  - api-key: \"{}\"\n", key.api_key));
+            if let Some(ref base_url) = key.base_url {
+                entry.push_str(&format!("    base-url: \"{}\"\n", base_url));
+            }
+            if let Some(ref proxy_url) = key.proxy_url {
+                if !proxy_url.is_empty() {
+                    entry.push_str(&format!("    proxy-url: \"{}\"\n", proxy_url));
+                }
+            }
+            entries.push(entry);
+        }
+        
+        if entries.is_empty() {
+            String::new()
+        } else {
+            let mut section = String::from("# Claude API keys\nclaude-api-key:\n");
+            for entry in entries {
+                section.push_str(&entry);
+            }
+            section.push('\n');
+            section
+        }
+    };
+    
+    // Build gemini-api-key section from user's persisted keys
+    let gemini_api_key_section = if config.gemini_api_keys.is_empty() {
         String::new()
+    } else {
+        let mut section = String::from("# Gemini API keys\ngemini-api-key:\n");
+        for key in &config.gemini_api_keys {
+            section.push_str(&format!("  - api-key: \"{}\"\n", key.api_key));
+            if let Some(ref base_url) = key.base_url {
+                section.push_str(&format!("    base-url: \"{}\"\n", base_url));
+            }
+            if let Some(ref proxy_url) = key.proxy_url {
+                if !proxy_url.is_empty() {
+                    section.push_str(&format!("    proxy-url: \"{}\"\n", proxy_url));
+                }
+            }
+        }
+        section.push('\n');
+        section
+    };
+    
+    // Build codex-api-key section from user's persisted keys
+    let codex_api_key_section = if config.codex_api_keys.is_empty() {
+        String::new()
+    } else {
+        let mut section = String::from("# Codex API keys\ncodex-api-key:\n");
+        for key in &config.codex_api_keys {
+            section.push_str(&format!("  - api-key: \"{}\"\n", key.api_key));
+            if let Some(ref base_url) = key.base_url {
+                section.push_str(&format!("    base-url: \"{}\"\n", base_url));
+            }
+            if let Some(ref proxy_url) = key.proxy_url {
+                if !proxy_url.is_empty() {
+                    section.push_str(&format!("    proxy-url: \"{}\"\n", proxy_url));
+                }
+            }
+        }
+        section.push('\n');
+        section
     };
     
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
@@ -970,7 +1048,7 @@ remote-management:
   secret-key: "proxypal-mgmt-key"
   disable-control-panel: true
 
-{}{}# Amp CLI Integration - enables amp login and management routes
+{}{}{}{}# Amp CLI Integration - enables amp login and management routes
 # See: https://help.router-for.me/agent-client/amp-cli.html
 # Get API key from: https://ampcode.com/settings
 ampcode:
@@ -988,7 +1066,9 @@ ampcode:
         config.quota_switch_project,
         config.quota_switch_preview_model,
         openai_compat_section,
-        copilot_claude_section,
+        claude_api_key_section,
+        gemini_api_key_section,
+        codex_api_key_section,
         amp_api_key_line,
         amp_model_mappings_section
     );
@@ -3886,6 +3966,13 @@ async fn set_gemini_api_keys(state: State<'_, AppState>, keys: Vec<GeminiApiKey>
         return Err(format!("Failed to set Gemini API keys: {} - {}", status, text));
     }
     
+    // Persist to ProxyPal config for restart persistence
+    {
+        let mut config = state.config.lock().unwrap();
+        config.gemini_api_keys = keys;
+        save_config_to_file(&config)?;
+    }
+    
     Ok(())
 }
 
@@ -3950,6 +4037,13 @@ async fn set_claude_api_keys(state: State<'_, AppState>, keys: Vec<ClaudeApiKey>
         return Err(format!("Failed to set Claude API keys: {} - {}", status, text));
     }
     
+    // Persist to ProxyPal config for restart persistence
+    {
+        let mut config = state.config.lock().unwrap();
+        config.claude_api_keys = keys;
+        save_config_to_file(&config)?;
+    }
+    
     Ok(())
 }
 
@@ -4012,6 +4106,13 @@ async fn set_codex_api_keys(state: State<'_, AppState>, keys: Vec<CodexApiKey>) 
         let status = response.status();
         let text = response.text().await.unwrap_or_default();
         return Err(format!("Failed to set Codex API keys: {} - {}", status, text));
+    }
+    
+    // Persist to ProxyPal config for restart persistence
+    {
+        let mut config = state.config.lock().unwrap();
+        config.codex_api_keys = keys;
+        save_config_to_file(&config)?;
     }
     
     Ok(())
@@ -4488,9 +4589,11 @@ async fn set_oauth_excluded_models(
     
     let client = build_management_client();
     
-    // Use PATCH to update a single provider
-    let mut body = std::collections::HashMap::new();
-    body.insert(provider.clone(), models);
+    // CLIProxyAPI expects: { "provider": "anthropic", "models": ["model1", "model2"] }
+    let body = serde_json::json!({
+        "provider": provider,
+        "models": models
+    });
     
     let response = client
         .patch(&url)
