@@ -3606,24 +3606,168 @@ async fn configure_cli_agent(state: State<'_, AppState>, agent_id: String, model
 
     match agent_id.as_str() {
         "claude-code" => {
-            // Generate shell config for Claude Code
-            let shell_config = format!(r#"# ProxyPal - Claude Code Configuration
-export ANTHROPIC_BASE_URL="{}"
-export ANTHROPIC_AUTH_TOKEN="proxypal-local"
-# For Claude Code 2.x
-export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-4-1-20250805"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-4-5-20250929"
-export ANTHROPIC_DEFAULT_HAIKU_MODEL="claude-3-5-haiku-20241022"
-# For Claude Code 1.x
-export ANTHROPIC_MODEL="claude-sonnet-4-5-20250929"
-export ANTHROPIC_SMALL_FAST_MODEL="claude-3-5-haiku-20241022"
-"#, endpoint);
+            // Write config to ~/.claude/settings.json (Claude Code's config file)
+            let config_dir = home.join(".claude");
+            std::fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+            let config_path = config_dir.join("settings.json");
+            
+            // Find best models for each tier from available models
+            // Priority: Claude > Gemini-Claude > Gemini > GPT
+            let find_model = |patterns: &[&str]| -> Option<String> {
+                for pattern in patterns {
+                    if let Some(m) = models.iter().find(|m| m.id.contains(pattern)) {
+                        return Some(m.id.clone());
+                    }
+                }
+                None
+            };
+            
+            // Opus tier: claude-opus > gemini-claude-opus > gpt-5(high)
+            let opus_model = find_model(&["claude-opus-4", "gemini-claude-opus", "gpt-5"])
+                .unwrap_or_else(|| "claude-opus-4-1-20250805".to_string());
+            
+            // Sonnet tier: claude-sonnet-4-5 > gemini-claude-sonnet > gpt-5
+            let sonnet_model = find_model(&["claude-sonnet-4-5", "claude-sonnet-4", "gemini-claude-sonnet", "gpt-5"])
+                .unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
+            
+            // Haiku tier: claude-haiku > gemini-2.5-flash > gpt-5(minimal)
+            let haiku_model = find_model(&["claude-3-5-haiku", "claude-haiku", "gemini-2.5-flash", "gpt-5"])
+                .unwrap_or_else(|| "claude-3-5-haiku-20241022".to_string());
+            
+            // Build env config for Claude Code settings.json
+            let env_config = serde_json::json!({
+                "ANTHROPIC_BASE_URL": endpoint,
+                "ANTHROPIC_AUTH_TOKEN": "proxypal-local",
+                "ANTHROPIC_DEFAULT_OPUS_MODEL": opus_model,
+                "ANTHROPIC_DEFAULT_SONNET_MODEL": sonnet_model,
+                "ANTHROPIC_DEFAULT_HAIKU_MODEL": haiku_model
+            });
+            
+            // If config exists, merge with existing (preserve other settings)
+            let final_config = if config_path.exists() {
+                if let Ok(existing) = std::fs::read_to_string(&config_path) {
+                    if let Ok(mut existing_json) = serde_json::from_str::<serde_json::Value>(&existing) {
+                        // Merge env into existing config
+                        if let Some(env) = existing_json.get_mut("env") {
+                            if let Some(obj) = env.as_object_mut() {
+                                // Update ProxyPal-related env vars
+                                obj.insert("ANTHROPIC_BASE_URL".to_string(), env_config["ANTHROPIC_BASE_URL"].clone());
+                                obj.insert("ANTHROPIC_AUTH_TOKEN".to_string(), env_config["ANTHROPIC_AUTH_TOKEN"].clone());
+                                obj.insert("ANTHROPIC_DEFAULT_OPUS_MODEL".to_string(), env_config["ANTHROPIC_DEFAULT_OPUS_MODEL"].clone());
+                                obj.insert("ANTHROPIC_DEFAULT_SONNET_MODEL".to_string(), env_config["ANTHROPIC_DEFAULT_SONNET_MODEL"].clone());
+                                obj.insert("ANTHROPIC_DEFAULT_HAIKU_MODEL".to_string(), env_config["ANTHROPIC_DEFAULT_HAIKU_MODEL"].clone());
+                            }
+                        } else {
+                            existing_json["env"] = env_config;
+                        }
+                        existing_json
+                    } else {
+                        serde_json::json!({ "env": env_config })
+                    }
+                } else {
+                    serde_json::json!({ "env": env_config })
+                }
+            } else {
+                serde_json::json!({ "env": env_config })
+            };
+            
+            let config_str = serde_json::to_string_pretty(&final_config).map_err(|e| e.to_string())?;
+            std::fs::write(&config_path, &config_str).map_err(|e| e.to_string())?;
+            
+            // Create a reference file with all available model options from each provider
+            let reference_path = config_dir.join("proxypal-models.md");
+            let reference_content = format!(r#"# ProxyPal Model Reference for Claude Code
 
+Edit your `~/.claude/settings.json` and replace the model values in the `env` section.
+
+## Current Configuration
+```json
+"ANTHROPIC_BASE_URL": "{}",
+"ANTHROPIC_AUTH_TOKEN": "proxypal-local",
+"ANTHROPIC_DEFAULT_OPUS_MODEL": "{}",
+"ANTHROPIC_DEFAULT_SONNET_MODEL": "{}",
+"ANTHROPIC_DEFAULT_HAIKU_MODEL": "{}"
+```
+
+## Available Models by Provider
+
+### Claude (Anthropic)
+| Tier | Model ID |
+|------|----------|
+| Opus | `claude-opus-4-1-20250805`, `claude-opus-4-5-20251101` |
+| Sonnet | `claude-sonnet-4-5-20250929`, `claude-sonnet-4-20250514` |
+| Haiku | `claude-3-5-haiku-20241022` |
+
+### Gemini via Antigravity (with extended thinking)
+| Tier | Model ID |
+|------|----------|
+| Opus | `gemini-claude-opus-4-5-thinking` |
+| Sonnet | `gemini-claude-sonnet-4-5-thinking`, `gemini-claude-sonnet-4-5` |
+| Haiku | `gemini-2.5-flash`, `gemini-2.5-flash-lite` |
+
+### Gemini (Google)
+| Tier | Model ID |
+|------|----------|
+| Opus | `gemini-2.5-pro` |
+| Sonnet | `gemini-2.5-flash` |
+| Haiku | `gemini-2.5-flash-lite` |
+
+### OpenAI GPT-5
+| Tier | Model ID |
+|------|----------|
+| Opus | `gpt-5(high)`, `gpt-5` |
+| Sonnet | `gpt-5(medium)`, `gpt-5-codex` |
+| Haiku | `gpt-5(minimal)`, `gpt-5(low)` |
+
+### Qwen
+| Tier | Model ID |
+|------|----------|
+| Opus | `qwen3-coder-plus`, `qwen3-max` |
+| Sonnet | `qwen3-coder-plus` |
+| Haiku | `qwen3-coder-flash`, `qwen3-235b-a22b-instruct` |
+
+### iFlow
+| Tier | Model ID |
+|------|----------|
+| Opus | `qwen3-max` |
+| Sonnet | `qwen3-coder-plus` |
+| Haiku | `qwen3-235b-a22b-instruct` |
+
+## Example Configurations
+
+### Use Gemini Antigravity (with thinking)
+```json
+"ANTHROPIC_DEFAULT_OPUS_MODEL": "gemini-claude-opus-4-5-thinking",
+"ANTHROPIC_DEFAULT_SONNET_MODEL": "gemini-claude-sonnet-4-5-thinking",
+"ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemini-2.5-flash"
+```
+
+### Use OpenAI GPT-5
+```json
+"ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5(high)",
+"ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5(medium)",
+"ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5(minimal)"
+```
+
+### Use Qwen
+```json
+"ANTHROPIC_DEFAULT_OPUS_MODEL": "qwen3-coder-plus",
+"ANTHROPIC_DEFAULT_SONNET_MODEL": "qwen3-coder-plus",
+"ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3-coder-flash"
+```
+
+---
+Generated by ProxyPal. Run `claude` to start using Claude Code.
+"#, endpoint, opus_model, sonnet_model, haiku_model);
+            
+            std::fs::write(&reference_path, &reference_content).map_err(|e| e.to_string())?;
+            
             Ok(serde_json::json!({
                 "success": true,
-                "configType": "env",
-                "shellConfig": shell_config,
-                "instructions": "Add the above to your ~/.bashrc, ~/.zshrc, or shell config file, then restart your terminal."
+                "configType": "config",
+                "configPath": config_path.to_string_lossy(),
+                "modelsConfigured": models.len(),
+                "instructions": format!("ProxyPal configured for Claude Code. See {} for all available model options from different providers.", reference_path.to_string_lossy())
             }))
         },
         
