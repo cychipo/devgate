@@ -4144,11 +4144,13 @@ export AMP_API_KEY="proxypal-local"
             }
             
             // Create or update opencode.json with proxypal provider
+            // Use @ai-sdk/openai-compatible instead of @ai-sdk/anthropic to avoid
+            // tool_use/tool_result ID mismatch issues with Antigravity Claude models
             let opencode_config = serde_json::json!({
                 "$schema": "https://opencode.ai/config.json",
                 "provider": {
                     "proxypal": {
-                        "npm": "@ai-sdk/anthropic",
+                        "npm": "@ai-sdk/openai-compatible",
                         "name": "ProxyPal",
                         "options": {
                             "baseURL": endpoint_v1,
