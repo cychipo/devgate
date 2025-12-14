@@ -82,7 +82,7 @@ export function WelcomePage() {
 				for (let i = 0; i < maxRetries; i++) {
 					try {
 						const res = await fetch(
-							`http://localhost:${status.port}/v1/models`,
+							`http://127.0.0.1:${status.port}/v1/models`,
 						);
 						if (res.ok) break;
 					} catch {

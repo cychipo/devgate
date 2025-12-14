@@ -2525,13 +2525,14 @@ async fn open_oauth(app: tauri::AppHandle, state: State<'_, AppState>, provider:
 
     // Get the OAuth URL from CLIProxyAPI's Management API
     // Add is_webui=true to use the embedded callback forwarder
+    // Use 127.0.0.1 consistently (not localhost) to avoid access control issues
     let endpoint = match provider.as_str() {
-        "claude" => format!("http://localhost:{}/v0/management/anthropic-auth-url?is_webui=true", port),
-        "openai" => format!("http://localhost:{}/v0/management/codex-auth-url?is_webui=true", port),
-        "gemini" => format!("http://localhost:{}/v0/management/gemini-cli-auth-url?is_webui=true", port),
-        "qwen" => format!("http://localhost:{}/v0/management/qwen-auth-url?is_webui=true", port),
-        "iflow" => format!("http://localhost:{}/v0/management/iflow-auth-url?is_webui=true", port),
-        "antigravity" => format!("http://localhost:{}/v0/management/antigravity-auth-url?is_webui=true", port),
+        "claude" => format!("http://127.0.0.1:{}/v0/management/anthropic-auth-url?is_webui=true", port),
+        "openai" => format!("http://127.0.0.1:{}/v0/management/codex-auth-url?is_webui=true", port),
+        "gemini" => format!("http://127.0.0.1:{}/v0/management/gemini-cli-auth-url?is_webui=true", port),
+        "qwen" => format!("http://127.0.0.1:{}/v0/management/qwen-auth-url?is_webui=true", port),
+        "iflow" => format!("http://127.0.0.1:{}/v0/management/iflow-auth-url?is_webui=true", port),
+        "antigravity" => format!("http://127.0.0.1:{}/v0/management/antigravity-auth-url?is_webui=true", port),
         "vertex" => return Err("Vertex uses service account import, not OAuth. Use import_vertex_credential instead.".to_string()),
         _ => return Err(format!("Unknown provider: {}", provider)),
     };

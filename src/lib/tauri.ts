@@ -1047,7 +1047,17 @@ export async function downloadAndInstallUpdate(
 		}
 	});
 
-	// Explicitly relaunch after install completes (required on macOS)
+	// Stop proxy before relaunch to release cliproxyapi binary (required on Windows)
+	try {
+		await invoke("stop_proxy");
+	} catch {
+		// Ignore errors, proxy might not be running
+	}
+
+	// Wait for process to fully terminate (Windows needs more time)
+	await new Promise((resolve) => setTimeout(resolve, 1000));
+
+	// Explicitly relaunch after install completes
 	await relaunch();
 }
 
