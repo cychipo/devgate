@@ -1046,6 +1046,9 @@ export async function downloadAndInstallUpdate(
 			}
 		}
 	});
+
+	// Explicitly relaunch after install completes (required on macOS)
+	await relaunch();
 }
 
 // Relaunch the app after update
