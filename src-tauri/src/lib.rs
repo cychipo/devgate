@@ -1878,8 +1878,24 @@ async fn detect_copilot_api(app: tauri::AppHandle) -> Result<CopilotApiDetection
                         
                         // npm says it's installed, derive copilot-api path from npm prefix
                         let copilot_bin = node_bin.as_ref()
-                            .map(|n| n.replace("/node", "/copilot-api"))
-                            .unwrap_or_else(|| "copilot-api".to_string());
+                            .map(|n| {
+                                if cfg!(target_os = "windows") {
+                                    // Windows: node.exe -> copilot-api.cmd
+                                    n.replace("\\node.exe", "\\copilot-api.cmd")
+                                        .replace("/node.exe", "/copilot-api.cmd")
+                                        .replace("\\node", "\\copilot-api.cmd")
+                                        .replace("/node", "/copilot-api.cmd")
+                                } else {
+                                    n.replace("/node", "/copilot-api")
+                                }
+                            })
+                            .unwrap_or_else(|| {
+                                if cfg!(target_os = "windows") {
+                                    "copilot-api.cmd".to_string()
+                                } else {
+                                    "copilot-api".to_string()
+                                }
+                            });
                         
                         return Ok(CopilotApiDetection {
                             installed: true,
