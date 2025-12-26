@@ -1,90 +1,100 @@
 #!/bin/bash
-# Download CLIProxyAPI binaries from GitHub releases
-# This script is called by build.rs if binaries are missing
+# Download CLIProxyAPI binaries for the specified target
 
 set -e
 
-VERSION="${CLIPROXYAPI_VERSION:-v6.6.56}"
-BINARIES_DIR="$(dirname "$0")/../binaries"
-GITHUB_REPO="router-for-me/CLIProxyAPI"
-BASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${VERSION}"
+BINARY_NAME="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BINARIES_DIR="$SCRIPT_DIR/../binaries"
 
-# Create binaries directory if it doesn't exist
-mkdir -p "$BINARIES_DIR"
-
-# Binary mappings: Tauri target triple -> GitHub release asset name
-declare -A BINARIES=(
-    ["cli-proxy-api-aarch64-apple-darwin"]="cli-proxy-api_darwin_arm64.tar.gz"
-    ["cli-proxy-api-x86_64-apple-darwin"]="cli-proxy-api_darwin_amd64.tar.gz"
-    ["cli-proxy-api-aarch64-unknown-linux-gnu"]="cli-proxy-api_linux_arm64.tar.gz"
-    ["cli-proxy-api-x86_64-unknown-linux-gnu"]="cli-proxy-api_linux_amd64.tar.gz"
-    ["cli-proxy-api-aarch64-pc-windows-msvc.exe"]="cli-proxy-api_windows_arm64.zip"
-    ["cli-proxy-api-x86_64-pc-windows-msvc.exe"]="cli-proxy-api_windows_amd64.zip"
-)
-
-download_binary() {
-    local target_name="$1"
-    local asset_name="$2"
-    local target_path="${BINARIES_DIR}/${target_name}"
-    
-    if [ -f "$target_path" ]; then
-        echo "Binary already exists: $target_name"
-        return 0
-    fi
-    
-    echo "Downloading $asset_name for $target_name..."
-    local url="${BASE_URL}/${asset_name}"
-    local tmp_dir=$(mktemp -d)
-    local archive_path="${tmp_dir}/${asset_name}"
-    
-    # Download archive
-    if ! curl -fsSL -o "$archive_path" "$url"; then
-        echo "Failed to download: $url"
-        rm -rf "$tmp_dir"
-        return 1
-    fi
-    
-    # Extract based on extension
-    if [[ "$asset_name" == *.tar.gz ]]; then
-        tar -xzf "$archive_path" -C "$tmp_dir"
-    elif [[ "$asset_name" == *.zip ]]; then
-        unzip -q "$archive_path" -d "$tmp_dir"
-    fi
-    
-    # Find and move the binary
-    local binary_name="cli-proxy-api"
-    if [[ "$target_name" == *.exe ]]; then
-        binary_name="cli-proxy-api.exe"
-    fi
-    
-    local extracted_binary=$(find "$tmp_dir" -name "$binary_name" -type f | head -1)
-    if [ -n "$extracted_binary" ]; then
-        mv "$extracted_binary" "$target_path"
-        chmod +x "$target_path"
-        echo "Installed: $target_name"
-    else
-        echo "Binary not found in archive: $asset_name"
-        rm -rf "$tmp_dir"
-        return 1
-    fi
-    
-    rm -rf "$tmp_dir"
-}
-
-# Download all binaries or just one if specified
-if [ -n "$1" ]; then
-    # Download specific binary
-    if [ -n "${BINARIES[$1]}" ]; then
-        download_binary "$1" "${BINARIES[$1]}"
-    else
-        echo "Unknown binary: $1"
-        exit 1
-    fi
-else
-    # Download all binaries
-    for target_name in "${!BINARIES[@]}"; do
-        download_binary "$target_name" "${BINARIES[$target_name]}"
-    done
+# Get latest version from GitHub API
+VERSION=$(curl -s https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+if [ -z "$VERSION" ]; then
+    VERSION="6.6.56"
 fi
 
-echo "Done!"
+# Map Tauri target to CLIProxyAPI asset name (bash 3 compatible - no associative arrays)
+get_asset_info() {
+    local target="$1"
+    case "$target" in
+        cli-proxy-api-aarch64-apple-darwin|cliproxyapi-aarch64-apple-darwin)
+            echo "CLIProxyAPI_${VERSION}_darwin_arm64.tar.gz|tar"
+            ;;
+        cli-proxy-api-x86_64-apple-darwin|cliproxyapi-x86_64-apple-darwin)
+            echo "CLIProxyAPI_${VERSION}_darwin_amd64.tar.gz|tar"
+            ;;
+        cli-proxy-api-x86_64-unknown-linux-gnu|cliproxyapi-x86_64-unknown-linux-gnu)
+            echo "CLIProxyAPI_${VERSION}_linux_amd64.tar.gz|tar"
+            ;;
+        cli-proxy-api-aarch64-unknown-linux-gnu|cliproxyapi-aarch64-unknown-linux-gnu)
+            echo "CLIProxyAPI_${VERSION}_linux_arm64.tar.gz|tar"
+            ;;
+        cli-proxy-api-x86_64-pc-windows-msvc.exe|cliproxyapi-x86_64-pc-windows-msvc.exe)
+            echo "CLIProxyAPI_${VERSION}_windows_amd64.zip|zip"
+            ;;
+        cli-proxy-api-aarch64-pc-windows-msvc.exe|cliproxyapi-aarch64-pc-windows-msvc.exe)
+            echo "CLIProxyAPI_${VERSION}_windows_arm64.zip|zip"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+mkdir -p "$BINARIES_DIR"
+
+if [ -n "$BINARY_NAME" ]; then
+    # Download specific binary
+    ASSET_INFO=$(get_asset_info "$BINARY_NAME")
+    if [ -z "$ASSET_INFO" ]; then
+        echo "Unknown target: $BINARY_NAME"
+        exit 1
+    fi
+    
+    ASSET_NAME="${ASSET_INFO%|*}"
+    ARCHIVE_TYPE="${ASSET_INFO#*|}"
+    
+    echo "Downloading $ASSET_NAME for $BINARY_NAME..."
+    URL="https://github.com/router-for-me/CLIProxyAPI/releases/download/v${VERSION}/${ASSET_NAME}"
+    
+    TEMP_DIR=$(mktemp -d)
+    trap "rm -rf $TEMP_DIR" EXIT
+    
+    if ! curl -L -f -o "$TEMP_DIR/$ASSET_NAME" "$URL"; then
+        echo "Failed to download: $URL"
+        exit 1
+    fi
+    
+    cd "$TEMP_DIR"
+    if [ "$ARCHIVE_TYPE" = "zip" ]; then
+        unzip -q "$ASSET_NAME"
+    else
+        tar -xzf "$ASSET_NAME"
+    fi
+    
+    # Find and copy the binary
+    if [ -f "CLIProxyAPI" ]; then
+        cp "CLIProxyAPI" "$BINARIES_DIR/$BINARY_NAME"
+        chmod +x "$BINARIES_DIR/$BINARY_NAME"
+    elif [ -f "CLIProxyAPI.exe" ]; then
+        cp "CLIProxyAPI.exe" "$BINARIES_DIR/$BINARY_NAME"
+    else
+        echo "Binary not found in archive"
+        ls -la
+        exit 1
+    fi
+    
+    echo "Downloaded to $BINARIES_DIR/$BINARY_NAME"
+else
+    # Download all binaries
+    for target in \
+        "cliproxyapi-aarch64-apple-darwin" \
+        "cliproxyapi-x86_64-apple-darwin" \
+        "cliproxyapi-x86_64-unknown-linux-gnu" \
+        "cliproxyapi-x86_64-pc-windows-msvc.exe"
+    do
+        if [ ! -f "$BINARIES_DIR/$target" ]; then
+            "$0" "$target" || echo "Warning: Failed to download $target"
+        fi
+    done
+fi

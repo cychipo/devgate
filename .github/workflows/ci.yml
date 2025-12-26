@@ -109,6 +109,50 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Download CLIProxyAPI binary
+        shell: bash
+        run: |
+          mkdir -p src-tauri/binaries
+          VERSION=$(curl -s https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest | grep '"tag_name"' | sed -E 's/.*"v([^"]+)".*/\1/')
+
+          case "${{ matrix.target }}" in
+            aarch64-apple-darwin)
+              ASSET="CLIProxyAPI_${VERSION}_darwin_arm64.tar.gz"
+              BINARY="cliproxyapi-aarch64-apple-darwin"
+              ;;
+            x86_64-apple-darwin)
+              ASSET="CLIProxyAPI_${VERSION}_darwin_amd64.tar.gz"
+              BINARY="cliproxyapi-x86_64-apple-darwin"
+              ;;
+            x86_64-unknown-linux-gnu)
+              ASSET="CLIProxyAPI_${VERSION}_linux_amd64.tar.gz"
+              BINARY="cliproxyapi-x86_64-unknown-linux-gnu"
+              ;;
+            x86_64-pc-windows-msvc)
+              ASSET="CLIProxyAPI_${VERSION}_windows_amd64.zip"
+              BINARY="cliproxyapi-x86_64-pc-windows-msvc.exe"
+              ;;
+          esac
+
+          echo "Downloading $ASSET..."
+          curl -L -o /tmp/cliproxyapi.archive "https://github.com/router-for-me/CLIProxyAPI/releases/download/v${VERSION}/${ASSET}"
+
+          cd /tmp
+          if [[ "$ASSET" == *.zip ]]; then
+            unzip -q cliproxyapi.archive
+          else
+            tar -xzf cliproxyapi.archive
+          fi
+
+          if [ -f "CLIProxyAPI" ]; then
+            cp CLIProxyAPI "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+          elif [ -f "CLIProxyAPI.exe" ]; then
+            cp CLIProxyAPI.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+          fi
+
+          ls -la "$GITHUB_WORKSPACE/src-tauri/binaries/"
+
       - name: Build Tauri app
         shell: bash
         run: pnpm tauri build --target ${{ matrix.target }} --config '{"bundle":{"createUpdaterArtifacts":false}}'
