@@ -162,6 +162,11 @@ jobs:
             chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
           elif [ -f "CLIProxyAPI.exe" ]; then
             cp CLIProxyAPI.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+          elif [ -f "cli-proxy-api.exe" ]; then
+            cp cli-proxy-api.exe "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+          elif [ -f "cli-proxy-api" ]; then
+            cp cli-proxy-api "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
+            chmod +x "$GITHUB_WORKSPACE/src-tauri/binaries/$BINARY"
           else
             echo "Binary not found!"
             ls -la
