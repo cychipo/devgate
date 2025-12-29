@@ -13,6 +13,7 @@ pub mod settings;
 pub mod usage;
 
 pub mod ssh;
+pub mod cloudflare;
 
 pub use agents::*;
 pub use amp::*;
@@ -28,3 +29,5 @@ pub use quota::*;
 pub use settings::*;
 pub use usage::*;
 pub use ssh::*;
+#[allow(unused_imports)]
+pub use cloudflare::*;

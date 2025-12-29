@@ -1,20 +1,33 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { createEffect, createMemo, createSignal, For, onMount, Show } from "solid-js";
+import {
+	createEffect,
+	createMemo,
+	createSignal,
+	For,
+	onMount,
+	Show,
+} from "solid-js";
 import { ModelsWidget } from "../components/ModelsWidget";
 import { Button, Switch } from "../components/ui";
 
-type SettingsTab = "general" | "providers" | "models" | "advanced" | "ssh";
+type SettingsTab =
+	| "general"
+	| "providers"
+	| "models"
+	| "advanced"
+	| "ssh"
+	| "cloudflare";
 
-
+import { open } from "@tauri-apps/plugin-dialog";
 import type {
 	AmpModelMapping,
 	AmpOpenAIModel,
 	AmpOpenAIProvider,
 	ClaudeCodeSettings,
+	CloudflareConfig,
 	ProviderTestResult,
 	SshConfig,
 } from "../lib/tauri";
-import { open } from "@tauri-apps/plugin-dialog";
 
 import {
 	type AgentConfigResult,
@@ -25,7 +38,9 @@ import {
 	type CopilotApiDetection,
 	checkForUpdates,
 	configureCliAgent,
+	deleteCloudflareConfig,
 	deleteOAuthExcludedModels,
+	deleteSshConfig,
 	detectCliAgents,
 	detectCopilotApi,
 	downloadAndInstallUpdate,
@@ -43,14 +58,18 @@ import {
 	isUpdaterSupported,
 	type OAuthExcludedModels,
 	type ReasoningEffortLevel,
+	saveCloudflareConfig,
 	saveConfig,
+	saveSshConfig,
 	setClaudeCodeModel,
 	setCloseToTray,
+	setCloudflareConnection,
 	setConfigYaml,
 	setForceModelMappings,
 	setMaxRetryInterval,
 	setOAuthExcludedModels,
 	setReasoningEffortSettings,
+	setSshConnection,
 	setThinkingBudgetSettings,
 	setWebsocketAuth,
 	type ThinkingBudgetSettings,
@@ -58,9 +77,6 @@ import {
 	type UpdateInfo,
 	type UpdateProgress,
 	type UpdaterSupport,
-	saveSshConfig,
-	deleteSshConfig,
-	setSshConnection,
 } from "../lib/tauri";
 
 import { appStore } from "../stores/app";
@@ -336,12 +352,19 @@ export function SettingsPage() {
 	const [sshLocal, setSshLocal] = createSignal(8317);
 	const [sshAdding, setSshAdding] = createSignal(false);
 
+	// Cloudflare State
+	const [cfId, setCfId] = createSignal("");
+	const [cfName, setCfName] = createSignal("");
+	const [cfToken, setCfToken] = createSignal("");
+	const [cfLocalPort, setCfLocalPort] = createSignal(8317);
+	const [cfAdding, setCfAdding] = createSignal(false);
+
 	// SSH Handlers
 	const handlePickKeyFile = async () => {
 		try {
 			const file = await open({
 				multiple: false,
-				filters: [{ name: "All Files", extensions: ["*"] }]
+				filters: [{ name: "All Files", extensions: ["*"] }],
 			});
 			if (file) setSshKey(file as string);
 		} catch (e) {
@@ -370,7 +393,7 @@ export function SettingsPage() {
 			};
 
 			const updated = await saveSshConfig(newConfig);
-			setConfig(prev => ({ ...prev, sshConfigs: updated }));
+			setConfig((prev) => ({ ...prev, sshConfigs: updated }));
 
 			// Reset form
 			handleCancelEdit();
@@ -409,7 +432,7 @@ export function SettingsPage() {
 		if (!confirm("Delete this connection?")) return;
 		try {
 			const updated = await deleteSshConfig(id);
-			setConfig(prev => ({ ...prev, sshConfigs: updated }));
+			setConfig((prev) => ({ ...prev, sshConfigs: updated }));
 		} catch (e) {
 			toastStore.error("Failed to delete", String(e));
 		}
@@ -420,11 +443,71 @@ export function SettingsPage() {
 			await setSshConnection(id, enable);
 			// Updating local config to reflect target state immediately for UI responsiveness
 			const configs = config().sshConfigs || [];
-			const updated = configs.map(c => c.id === id ? { ...c, enabled: enable } : c);
-			setConfig(prev => ({ ...prev, sshConfigs: updated }));
+			const updated = configs.map((c) =>
+				c.id === id ? { ...c, enabled: enable } : c,
+			);
+			setConfig((prev) => ({ ...prev, sshConfigs: updated }));
 		} catch (e) {
 			toastStore.error("Failed to toggle", String(e));
 		}
+	};
+
+	// Cloudflare Handlers
+	const handleSaveCf = async () => {
+		if (!cfName() || !cfToken()) {
+			toastStore.error("Please fill in name and tunnel token");
+			return;
+		}
+		try {
+			const cfConfig: CloudflareConfig = {
+				id: cfId() || crypto.randomUUID(),
+				name: cfName(),
+				tunnelToken: cfToken(),
+				localPort: cfLocalPort(),
+				enabled: false,
+			};
+			const updated = await saveCloudflareConfig(cfConfig);
+			setConfig((prev) => ({ ...prev, cloudflareConfigs: updated }));
+			setCfId("");
+			setCfName("");
+			setCfToken("");
+			setCfLocalPort(8317);
+			setCfAdding(false);
+			toastStore.success("Cloudflare tunnel saved");
+		} catch (e) {
+			toastStore.error("Failed to save", String(e));
+		}
+	};
+
+	const handleDeleteCf = async (id: string) => {
+		try {
+			const updated = await deleteCloudflareConfig(id);
+			setConfig((prev) => ({ ...prev, cloudflareConfigs: updated }));
+			toastStore.success("Tunnel deleted");
+		} catch (e) {
+			toastStore.error("Failed to delete", String(e));
+		}
+	};
+
+	const handleToggleCf = async (id: string, enable: boolean) => {
+		try {
+			await setCloudflareConnection(id, enable);
+			const configs = config().cloudflareConfigs || [];
+			const updated = configs.map((c) =>
+				c.id === id ? { ...c, enabled: enable } : c,
+			);
+			setConfig((prev) => ({ ...prev, cloudflareConfigs: updated }));
+		} catch (e) {
+			toastStore.error("Failed to toggle", String(e));
+		}
+	};
+
+	const handleEditCf = (cf: CloudflareConfig) => {
+		setCfId(cf.id);
+		setCfName(cf.name);
+		setCfToken(cf.tunnelToken);
+		setCfLocalPort(cf.localPort);
+		setCfAdding(true);
 	};
 
 	// Check for app updates
@@ -1147,6 +1230,7 @@ export function SettingsPage() {
 								{ id: "providers" as SettingsTab, label: "Providers" },
 								{ id: "models" as SettingsTab, label: "Models" },
 								{ id: "ssh" as SettingsTab, label: "SSH API" },
+								{ id: "cloudflare" as SettingsTab, label: "Cloudflare" },
 								{ id: "advanced" as SettingsTab, label: "Advanced" },
 							]}
 						>
@@ -1925,17 +2009,19 @@ export function SettingsPage() {
 											onClick={() =>
 												handleForceModelMappingsChange(!forceModelMappings())
 											}
-											class={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${forceModelMappings()
-												? "bg-brand-600"
-												: "bg-gray-200 dark:bg-gray-700"
-												}`}
+											class={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+												forceModelMappings()
+													? "bg-brand-600"
+													: "bg-gray-200 dark:bg-gray-700"
+											}`}
 										>
 											<span
 												aria-hidden="true"
-												class={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${forceModelMappings()
-													? "translate-x-5"
-													: "translate-x-0"
-													}`}
+												class={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+													forceModelMappings()
+														? "translate-x-5"
+														: "translate-x-0"
+												}`}
 											/>
 										</button>
 									</div>
@@ -2014,10 +2100,11 @@ export function SettingsPage() {
 																			);
 																		}}
 																		disabled={!isEnabled()}
-																		class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth [&>option]:bg-white [&>option]:dark:bg-gray-900 [&>option]:text-gray-900 [&>option]:dark:text-gray-100 [&>optgroup]:bg-white [&>optgroup]:dark:bg-gray-900 [&>optgroup]:text-gray-900 [&>optgroup]:dark:text-gray-100 ${!isEnabled()
-																			? "opacity-50 cursor-not-allowed"
-																			: ""
-																			}`}
+																		class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth [&>option]:bg-white [&>option]:dark:bg-gray-900 [&>option]:text-gray-900 [&>option]:dark:text-gray-100 [&>optgroup]:bg-white [&>optgroup]:dark:bg-gray-900 [&>optgroup]:text-gray-900 [&>optgroup]:dark:text-gray-100 ${
+																			!isEnabled()
+																				? "opacity-50 cursor-not-allowed"
+																				: ""
+																		}`}
 																	>
 																		<option value="">Select target...</option>
 																		<Show when={customModels.length > 0}>
@@ -2161,10 +2248,11 @@ export function SettingsPage() {
 																	);
 																}}
 																disabled={mapping.enabled === false}
-																class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth [&>option]:bg-white [&>option]:dark:bg-gray-900 [&>option]:text-gray-900 [&>option]:dark:text-gray-100 [&>optgroup]:bg-white [&>optgroup]:dark:bg-gray-900 [&>optgroup]:text-gray-900 [&>optgroup]:dark:text-gray-100 ${mapping.enabled === false
-																	? "opacity-50 cursor-not-allowed"
-																	: ""
-																	}`}
+																class={`flex-1 min-w-0 px-2 py-1.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border border-gray-300 dark:border-gray-600 rounded-lg text-xs focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-smooth [&>option]:bg-white [&>option]:dark:bg-gray-900 [&>option]:text-gray-900 [&>option]:dark:text-gray-100 [&>optgroup]:bg-white [&>optgroup]:dark:bg-gray-900 [&>optgroup]:text-gray-900 [&>optgroup]:dark:text-gray-100 ${
+																	mapping.enabled === false
+																		? "opacity-50 cursor-not-allowed"
+																		: ""
+																}`}
 															>
 																<option value="">Select target...</option>
 																<Show when={customModels.length > 0}>
@@ -2769,10 +2857,11 @@ export function SettingsPage() {
 											<Show when={providerTestResult()}>
 												{(result) => (
 													<div
-														class={`flex items-center gap-2 p-2 rounded-lg text-xs ${result().success
-															? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
-															: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
-															}`}
+														class={`flex items-center gap-2 p-2 rounded-lg text-xs ${
+															result().success
+																? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400"
+																: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400"
+														}`}
 													>
 														<Show
 															when={result().success}
@@ -2984,15 +3073,17 @@ export function SettingsPage() {
 										aria-checked={websocketAuth()}
 										disabled={savingWebsocketAuth()}
 										onClick={() => handleWebsocketAuthChange(!websocketAuth())}
-										class={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${websocketAuth()
-											? "bg-brand-600"
-											: "bg-gray-200 dark:bg-gray-700"
-											}`}
+										class={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-50 ${
+											websocketAuth()
+												? "bg-brand-600"
+												: "bg-gray-200 dark:bg-gray-700"
+										}`}
 									>
 										<span
 											aria-hidden="true"
-											class={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${websocketAuth() ? "translate-x-5" : "translate-x-0"
-												}`}
+											class={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+												websocketAuth() ? "translate-x-5" : "translate-x-0"
+											}`}
 										/>
 									</button>
 								</div>
@@ -3413,15 +3504,13 @@ export function SettingsPage() {
 					</div>
 
 					{/* SSH Settings */}
-					<div
-						class="space-y-4"
-						classList={{ hidden: activeTab() !== "ssh" }}
-					>
+					<div class="space-y-4" classList={{ hidden: activeTab() !== "ssh" }}>
 						<h2 class="text-sm font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
 							SSH API Connections
 						</h2>
 						<p class="text-sm text-gray-500 dark:text-gray-400">
-							Securely tunnel your local API (port 8317) to a remote server for shared access.
+							Securely tunnel your local API (port 8317) to a remote server for
+							shared access.
 						</p>
 
 						{/* List */}
@@ -3429,17 +3518,24 @@ export function SettingsPage() {
 							<For each={config().sshConfigs || []}>
 								{(ssh: SshConfig) => {
 									const statusProps = createMemo(() => {
-										const status = appStore.sshStatus()[ssh.id] || { id: ssh.id, status: ssh.enabled ? "connecting" : "disconnected", message: undefined };
+										const status = appStore.sshStatus()[ssh.id] || {
+											id: ssh.id,
+											status: ssh.enabled ? "connecting" : "disconnected",
+											message: undefined,
+										};
 
 										let displayStatus = status.status;
-										let displayMessage = status.message;
+										const displayMessage = status.message;
 
 										if (ssh.enabled) {
 											if (!displayStatus || displayStatus === "disconnected") {
 												displayStatus = "connecting";
 											}
 										} else {
-											if (displayStatus === "connected" || displayStatus === "connecting") {
+											if (
+												displayStatus === "connected" ||
+												displayStatus === "connecting"
+											) {
 												displayStatus = "disconnected";
 											}
 										}
@@ -3450,14 +3546,22 @@ export function SettingsPage() {
 										<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 											<div>
 												<div class="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
-													<span>{ssh.username}@{ssh.host}:{ssh.port}</span>
+													<span>
+														{ssh.username}@{ssh.host}:{ssh.port}
+													</span>
 												</div>
 												<div class="text-xs text-gray-500 mt-1">
-													Forward: Remote :{ssh.remotePort} &rarr; Local :{ssh.localPort}
+													Forward: Remote :{ssh.remotePort} &rarr; Local :
+													{ssh.localPort}
 												</div>
 												<Show when={statusProps().message}>
-													<div class={`text-xs mt-1 break-all flex items-start gap-1 ${statusProps().status === 'error' ? 'text-red-500' : 'text-gray-500'
-														}`}>
+													<div
+														class={`text-xs mt-1 break-all flex items-start gap-1 ${
+															statusProps().status === "error"
+																? "text-red-500"
+																: "text-gray-500"
+														}`}
+													>
 														<span class="opacity-75">&gt;</span>
 														<span>{statusProps().message}</span>
 													</div>
@@ -3465,11 +3569,18 @@ export function SettingsPage() {
 											</div>
 											<div class="flex items-center gap-4">
 												<div class="flex items-center gap-2">
-													<div class={`w-2.5 h-2.5 rounded-full ${statusProps().status === "connected" ? "bg-green-500" :
-														statusProps().status === "error" ? "bg-red-500" :
-															statusProps().status === "connecting" || statusProps().status === "reconnecting" ? "bg-orange-500 animate-pulse" :
-																"bg-gray-400"
-														}`} />
+													<div
+														class={`w-2.5 h-2.5 rounded-full ${
+															statusProps().status === "connected"
+																? "bg-green-500"
+																: statusProps().status === "error"
+																	? "bg-red-500"
+																	: statusProps().status === "connecting" ||
+																			statusProps().status === "reconnecting"
+																		? "bg-orange-500 animate-pulse"
+																		: "bg-gray-400"
+														}`}
+													/>
 													<span class="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize min-w-[50px]">
 														{statusProps().status}
 													</span>
@@ -3484,8 +3595,19 @@ export function SettingsPage() {
 													title="Edit Connection"
 													onClick={() => handleEditSsh(ssh)}
 												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="w-4 h-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+														/>
 													</svg>
 												</button>
 												<button
@@ -3493,13 +3615,24 @@ export function SettingsPage() {
 													title="Delete Connection"
 													onClick={() => handleDeleteSsh(ssh.id)}
 												>
-													<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+													<svg
+														xmlns="http://www.w3.org/2000/svg"
+														class="w-4 h-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+														/>
 													</svg>
 												</button>
 											</div>
 										</div>
-									)
+									);
 								}}
 							</For>
 							<Show when={(config().sshConfigs || []).length === 0}>
@@ -3526,33 +3659,47 @@ export function SettingsPage() {
 							</div>
 							<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Host / IP</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Host / IP
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 										placeholder="e.g. 192.168.1.1 or vps.example.com"
 										value={sshHost()}
 										onInput={(e) => setSshHost(e.currentTarget.value)}
 									/>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Port</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Port
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 										placeholder="22"
 										type="number"
 										value={sshPort()}
-										onInput={(e) => setSshPort(parseInt(e.currentTarget.value) || 22)}
+										onInput={(e) =>
+											setSshPort(parseInt(e.currentTarget.value) || 22)
+										}
 									/>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Username</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Username
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 										placeholder="root"
 										value={sshUser()}
 										onInput={(e) => setSshUser(e.currentTarget.value)}
 									/>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Password (Not Supported)</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm cursor-not-allowed"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Password (Not Supported)
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-sm cursor-not-allowed"
 										placeholder="Password auth not supported - Use Key File"
 										type="password"
 										disabled
@@ -3560,13 +3707,17 @@ export function SettingsPage() {
 										onInput={(e) => setSshPass(e.currentTarget.value)}
 									/>
 									<p class="text-[10px] text-orange-500">
-										Note: Password authentication is not supported. Please use a Private Key file.
+										Note: Password authentication is not supported. Please use a
+										Private Key file.
 									</p>
 								</div>
 								<div class="col-span-1 sm:col-span-2 space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Private Key File</label>
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Private Key File
+									</label>
 									<div class="flex gap-2">
-										<input class="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+										<input
+											class="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 											placeholder="/path/to/private_key"
 											value={sshKey()}
 											onInput={(e) => setSshKey(e.currentTarget.value)}
@@ -3580,31 +3731,270 @@ export function SettingsPage() {
 									</div>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Remote Port (VPS)</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Remote Port (VPS)
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 										placeholder="8317"
 										type="number"
 										value={sshRemote()}
-										onInput={(e) => setSshRemote(parseInt(e.currentTarget.value) || 0)}
+										onInput={(e) =>
+											setSshRemote(parseInt(e.currentTarget.value) || 0)
+										}
 									/>
-									<p class="text-[10px] text-gray-400">Port to open on the remote server</p>
+									<p class="text-[10px] text-gray-400">
+										Port to open on the remote server
+									</p>
 								</div>
 								<div class="space-y-1">
-									<label class="text-xs font-medium text-gray-500 uppercase">Local Port (This App)</label>
-									<input class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Local Port (This App)
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
 										placeholder="8317"
 										type="number"
 										value={sshLocal()}
-										onInput={(e) => setSshLocal(parseInt(e.currentTarget.value) || 0)}
+										onInput={(e) =>
+											setSshLocal(parseInt(e.currentTarget.value) || 0)
+										}
 									/>
-									<p class="text-[10px] text-gray-400">Port running locally (default 8317)</p>
+									<p class="text-[10px] text-gray-400">
+										Port running locally (default 8317)
+									</p>
 								</div>
 							</div>
 							<div class="pt-2">
-								<Button onClick={handleSaveSsh} loading={sshAdding()} variant="primary" class="w-full sm:w-auto">
+								<Button
+									onClick={handleSaveSsh}
+									loading={sshAdding()}
+									variant="primary"
+									class="w-full sm:w-auto"
+								>
 									{sshId() ? "Update Connection" : "Add Connection"}
 								</Button>
 							</div>
+						</div>
+					</div>
+
+					{/* Cloudflare Tunnel Settings */}
+					<div
+						class="space-y-6"
+						classList={{ hidden: activeTab() !== "cloudflare" }}
+					>
+						<div class="flex items-center justify-between">
+							<div>
+								<h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+									Cloudflare Tunnel
+								</h2>
+								<p class="text-sm text-gray-500 dark:text-gray-400">
+									Expose your local API via Cloudflare Tunnel
+								</p>
+							</div>
+							<Button
+								onClick={() => {
+									setCfId("");
+									setCfName("");
+									setCfToken("");
+									setCfLocalPort(8317);
+									setCfAdding(true);
+								}}
+								variant="primary"
+								class="text-sm"
+							>
+								+ Add Tunnel
+							</Button>
+						</div>
+
+						{/* Existing Tunnels */}
+						<For each={config().cloudflareConfigs || []}>
+							{(cf) => {
+								const status = () => appStore.cloudflareStatus()[cf.id];
+								return (
+									<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+										<div class="flex items-center justify-between">
+											<div class="flex items-center gap-3">
+												<div
+													class={`w-3 h-3 rounded-full ${
+														status()?.status === "connected"
+															? "bg-green-500"
+															: status()?.status === "connecting"
+																? "bg-yellow-500 animate-pulse"
+																: status()?.status === "error"
+																	? "bg-red-500"
+																	: "bg-gray-400"
+													}`}
+												/>
+												<div>
+													<p class="font-medium text-gray-900 dark:text-white">
+														{cf.name}
+													</p>
+													<p class="text-xs text-gray-500">
+														Port {cf.localPort} •{" "}
+														{status()?.message ||
+															(cf.enabled ? "Enabled" : "Disabled")}
+													</p>
+													<Show when={status()?.url}>
+														<p class="text-xs text-blue-500 mt-1">
+															{status()?.url}
+														</p>
+													</Show>
+												</div>
+											</div>
+											<div class="flex items-center gap-2">
+												<Switch
+													checked={cf.enabled}
+													onChange={(v) => handleToggleCf(cf.id, v)}
+												/>
+												<button
+													type="button"
+													onClick={() => handleEditCf(cf)}
+													class="p-2 text-gray-400 hover:text-blue-500 transition-colors"
+													title="Edit"
+												>
+													<svg
+														class="w-4 h-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+														/>
+													</svg>
+												</button>
+												<button
+													type="button"
+													onClick={() => handleDeleteCf(cf.id)}
+													class="p-2 text-gray-400 hover:text-red-500 transition-colors"
+													title="Delete"
+												>
+													<svg
+														class="w-4 h-4"
+														fill="none"
+														viewBox="0 0 24 24"
+														stroke="currentColor"
+													>
+														<path
+															stroke-linecap="round"
+															stroke-linejoin="round"
+															stroke-width="2"
+															d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+														/>
+													</svg>
+												</button>
+											</div>
+										</div>
+									</div>
+								);
+							}}
+						</For>
+
+						{/* Add/Edit Form */}
+						<Show when={cfAdding()}>
+							<div class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 space-y-4">
+								<div class="flex items-center justify-between">
+									<h3 class="font-medium text-blue-900 dark:text-blue-100">
+										{cfId() ? "Edit Tunnel" : "New Tunnel"}
+									</h3>
+									<button
+										type="button"
+										onClick={() => setCfAdding(false)}
+										class="text-gray-400 hover:text-gray-600"
+									>
+										<svg
+											class="w-5 h-5"
+											fill="none"
+											viewBox="0 0 24 24"
+											stroke="currentColor"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												stroke-width="2"
+												d="M6 18L18 6M6 6l12 12"
+											/>
+										</svg>
+									</button>
+								</div>
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+									<div class="space-y-1">
+										<label class="text-xs font-medium text-gray-500 uppercase">
+											Name
+										</label>
+										<input
+											class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+											placeholder="My Tunnel"
+											value={cfName()}
+											onInput={(e) => setCfName(e.currentTarget.value)}
+										/>
+									</div>
+									<div class="space-y-1">
+										<label class="text-xs font-medium text-gray-500 uppercase">
+											Local Port
+										</label>
+										<input
+											class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+											placeholder="8317"
+											type="number"
+											value={cfLocalPort()}
+											onInput={(e) =>
+												setCfLocalPort(parseInt(e.currentTarget.value) || 8317)
+											}
+										/>
+									</div>
+								</div>
+								<div class="space-y-1">
+									<label class="text-xs font-medium text-gray-500 uppercase">
+										Tunnel Token
+									</label>
+									<input
+										class="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none"
+										placeholder="eyJ..."
+										type="password"
+										value={cfToken()}
+										onInput={(e) => setCfToken(e.currentTarget.value)}
+									/>
+									<p class="text-[10px] text-gray-400">
+										Get token from Cloudflare Zero Trust Dashboard → Access →
+										Tunnels
+									</p>
+								</div>
+								<div class="pt-2">
+									<Button
+										onClick={handleSaveCf}
+										variant="primary"
+										class="w-full sm:w-auto"
+									>
+										{cfId() ? "Update Tunnel" : "Add Tunnel"}
+									</Button>
+								</div>
+							</div>
+						</Show>
+
+						{/* Help Section */}
+						<div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+							<h3 class="font-medium text-gray-900 dark:text-white mb-2">
+								How to set up Cloudflare Tunnel
+							</h3>
+							<ol class="text-sm text-gray-600 dark:text-gray-400 space-y-2 list-decimal list-inside">
+								<li>
+									Install{" "}
+									<code class="bg-gray-200 dark:bg-gray-700 px-1 rounded">
+										cloudflared
+									</code>{" "}
+									on your system
+								</li>
+								<li>
+									Go to Cloudflare Zero Trust Dashboard → Access → Tunnels
+								</li>
+								<li>Create a new tunnel and copy the token</li>
+								<li>Paste the token above and enable the tunnel</li>
+							</ol>
 						</div>
 					</div>
 

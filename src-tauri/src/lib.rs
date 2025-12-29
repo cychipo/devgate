@@ -5,6 +5,7 @@ mod state;
 mod types;
 mod utils;
 mod ssh_manager;
+mod cloudflare_manager;
 
 use crate::config::{get_aggregate_path, get_auth_path, get_history_path, load_config, save_config_to_file};
 use crate::state::AppState;
@@ -19,6 +20,7 @@ use crate::types::{
     AvailableModel, ProviderTestResult, ProviderHealth, HealthStatus,
 };
 use crate::ssh_manager::SshManager;
+use crate::cloudflare_manager::CloudflareManager;
 use crate::utils::{estimate_request_cost, detect_provider_from_model, detect_provider_from_path, extract_model_from_path};
 use serde::Deserialize;
 use std::sync::Mutex;
@@ -6182,6 +6184,7 @@ pub fn run() {
         }))
         .manage(app_state)
         .manage(SshManager::new())
+        .manage(CloudflareManager::new())
         .setup(|app| {
             // Setup system tray
             #[cfg(desktop)]
@@ -6308,6 +6311,11 @@ pub fn run() {
             commands::ssh::save_ssh_config,
             commands::ssh::delete_ssh_config,
             commands::ssh::set_ssh_connection,
+            // Cloudflare Tunnel
+            commands::cloudflare::get_cloudflare_configs,
+            commands::cloudflare::save_cloudflare_config,
+            commands::cloudflare::delete_cloudflare_config,
+            commands::cloudflare::set_cloudflare_connection,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -5,7 +5,7 @@ use crate::types::{
     ClaudeApiKey, GeminiApiKey, CodexApiKey,
     CopilotConfig, SshConfig,
     amp::generate_uuid,
-
+    cloudflare::CloudflareConfig,
 };
 
 /// App configuration persisted to config.json
@@ -75,7 +75,8 @@ pub struct AppConfig {
     pub commercial_mode: bool,
     #[serde(default)]
     pub ssh_configs: Vec<SshConfig>,
-
+    #[serde(default)]
+    pub cloudflare_configs: Vec<CloudflareConfig>,
 }
 
 fn default_management_key() -> String {
@@ -141,9 +142,9 @@ impl Default for AppConfig {
             max_retry_interval: 0,
             proxy_api_key: "proxypal-local".to_string(),
             management_key: "proxypal-mgmt-key".to_string(),
-            commercial_mode: false,
+commercial_mode: false,
             ssh_configs: Vec::new(),
-
+            cloudflare_configs: Vec::new(),
         }
     }
 }

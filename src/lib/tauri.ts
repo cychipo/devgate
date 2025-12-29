@@ -287,6 +287,7 @@ export interface AppConfig {
 	managementKey?: string; // Management API key for internal proxy calls
 	commercialMode?: boolean; // Disable request logging for lower memory usage
 	sshConfigs?: SshConfig[];
+	cloudflareConfigs?: CloudflareConfig[];
 }
 
 export async function getConfig(): Promise<AppConfig> {
@@ -1181,7 +1182,12 @@ export interface SshConfig {
 
 export interface SshStatusUpdate {
 	id: string;
-	status: "connected" | "disconnected" | "error" | "reconnecting" | "connecting";
+	status:
+		| "connected"
+		| "disconnected"
+		| "error"
+		| "reconnecting"
+		| "connecting";
 	message?: string;
 }
 
@@ -1197,7 +1203,10 @@ export async function deleteSshConfig(id: string): Promise<SshConfig[]> {
 	return invoke("delete_ssh_config", { id });
 }
 
-export async function setSshConnection(id: string, enable: boolean): Promise<void> {
+export async function setSshConnection(
+	id: string,
+	enable: boolean,
+): Promise<void> {
 	return invoke("set_ssh_connection", { id, enable });
 }
 
@@ -1207,4 +1216,57 @@ export async function onSshStatusChanged(
 	return listen<SshStatusUpdate>("ssh-status-changed", (event) => {
 		callback(event.payload);
 	});
+}
+
+// ============================================================================
+// Cloudflare Tunnel
+// ============================================================================
+
+export interface CloudflareConfig {
+	id: string;
+	name: string;
+	tunnelToken: string;
+	localPort: number;
+	enabled: boolean;
+}
+
+export interface CloudflareStatusUpdate {
+	id: string;
+	status: string;
+	message?: string;
+	url?: string;
+}
+
+export async function getCloudflareConfigs(): Promise<CloudflareConfig[]> {
+	return invoke("get_cloudflare_configs");
+}
+
+export async function saveCloudflareConfig(
+	cfConfig: CloudflareConfig,
+): Promise<CloudflareConfig[]> {
+	return invoke("save_cloudflare_config", { cfConfig });
+}
+
+export async function deleteCloudflareConfig(
+	id: string,
+): Promise<CloudflareConfig[]> {
+	return invoke("delete_cloudflare_config", { id });
+}
+
+export async function setCloudflareConnection(
+	id: string,
+	enable: boolean,
+): Promise<void> {
+	return invoke("set_cloudflare_connection", { id, enable });
+}
+
+export async function onCloudflareStatusChanged(
+	callback: (status: CloudflareStatusUpdate) => void,
+): Promise<UnlistenFn> {
+	return listen<CloudflareStatusUpdate>(
+		"cloudflare-status-changed",
+		(event) => {
+			callback(event.payload);
+		},
+	);
 }

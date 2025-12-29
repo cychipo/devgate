@@ -2,21 +2,22 @@ import { createRoot, createSignal, onCleanup } from "solid-js";
 import type {
 	AppConfig,
 	AuthStatus,
+	CloudflareStatusUpdate,
 	OAuthCallback,
 	ProxyStatus,
 	SshStatusUpdate,
 } from "../lib/tauri";
 import {
-
 	completeOAuth,
 	getAuthStatus,
 	getConfig,
 	getProxyStatus,
 	onAuthStatusChanged,
+	onCloudflareStatusChanged,
 	onOAuthCallback,
 	onProxyStatusChanged,
-	onTrayToggleProxy,
 	onSshStatusChanged,
+	onTrayToggleProxy,
 	refreshAuthStatus,
 	showSystemNotification,
 	startProxy,
@@ -76,7 +77,14 @@ function createAppStore() {
 	});
 
 	// SSH Status
-	const [sshStatus, setSshStatus] = createSignal<Record<string, SshStatusUpdate>>({});
+	const [sshStatus, setSshStatus] = createSignal<
+		Record<string, SshStatusUpdate>
+	>({});
+
+	// Cloudflare Status
+	const [cloudflareStatus, setCloudflareStatus] = createSignal<
+		Record<string, CloudflareStatusUpdate>
+	>({});
 
 	// UI state
 	const [currentPage, setCurrentPage] = createSignal<
@@ -204,6 +212,15 @@ function createAppStore() {
 				setSshStatus((prev) => ({ ...prev, [status.id]: status }));
 			});
 
+			const unlistenCf = await onCloudflareStatusChanged((status) => {
+				setCloudflareStatus((prev) => ({ ...prev, [status.id]: status }));
+			});
+
+			onCleanup(() => {
+				unlistenSsh();
+				unlistenCf();
+			});
+
 			// Auto-start proxy if configured
 			if (configState.autoStart) {
 				try {
@@ -254,6 +271,7 @@ function createAppStore() {
 
 		// SSH
 		sshStatus,
+		cloudflareStatus,
 
 		// UI
 		currentPage,
