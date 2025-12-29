@@ -149,11 +149,31 @@ jobs:
             | macOS (Apple Silicon) | `.dmg` (aarch64) |
             | macOS (Intel) | `.dmg` (x64) |
             | Windows | `.exe` installer |
+            | Windows (Portable) | `.zip` (no install required) |
             | Linux | `.deb` package |
           releaseDraft: false
           prerelease: false
           updaterJsonPreferNsis: true
           args: --target ${{ matrix.target }}
+
+      - name: Create portable Windows zip
+        if: matrix.target == 'x86_64-pc-windows-msvc'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}"
+          $exePath = "src-tauri/target/x86_64-pc-windows-msvc/release/ProxyPal.exe"
+
+          if (Test-Path $exePath) {
+            $zipName = "ProxyPal_${version}_x64_portable.zip"
+            Compress-Archive -Path $exePath -DestinationPath $zipName
+            gh release upload $version $zipName --clobber
+            Write-Host "Uploaded portable zip: $zipName"
+          } else {
+            Write-Warning "Executable not found at $exePath"
+            Get-ChildItem -Recurse -Filter "*.exe" src-tauri/target | Select-Object FullName
+          }
 
   notify:
     name: Discord Notification
