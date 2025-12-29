@@ -911,7 +911,7 @@ payload:
     
     // Always regenerate config on start because CLIProxyAPI hashes the secret-key in place
     // and we need the plaintext key for Management API access
-    let proxy_config = format!(
+    let mut proxy_config = format!(
         r#"# ProxyPal generated config
 port: {}
 auth-dir: "~/.cli-proxy-api"
@@ -962,6 +962,18 @@ ampcode:
         amp_api_key_line,
         amp_model_mappings_section
     );
+    
+    // Append user customizations from proxy-config-custom.yaml if it exists
+    let custom_config_path = config_dir.join("proxy-config-custom.yaml");
+    if custom_config_path.exists() {
+        if let Ok(custom_yaml) = std::fs::read_to_string(&custom_config_path) {
+            if !custom_yaml.trim().is_empty() {
+                proxy_config.push_str("\n# User customizations (from proxy-config-custom.yaml)\n");
+                proxy_config.push_str(&custom_yaml);
+                proxy_config.push('\n');
+            }
+        }
+    }
     
     std::fs::write(&proxy_config_path, proxy_config).map_err(|e| e.to_string())?;
 

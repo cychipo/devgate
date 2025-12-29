@@ -79,14 +79,17 @@ pub fn get_config_yaml() -> Result<String, String> {
     let config_dir = dirs::config_dir()
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("proxypal");
-    let proxy_config_path = config_dir.join("proxy-config.yaml");
     
-    if !proxy_config_path.exists() {
+    // Read from custom config file (user edits)
+    let custom_config_path = config_dir.join("proxy-config-custom.yaml");
+    
+    if !custom_config_path.exists() {
+        // Return empty string if no custom config exists yet
         return Ok(String::new());
     }
     
-    fs::read_to_string(&proxy_config_path)
-        .map_err(|e| format!("Failed to read config YAML: {}", e))
+    fs::read_to_string(&custom_config_path)
+        .map_err(|e| format!("Failed to read custom config YAML: {}", e))
 }
 
 #[tauri::command]
@@ -96,7 +99,8 @@ pub fn save_config_yaml(yaml: String) -> Result<(), String> {
         .join("proxypal");
     fs::create_dir_all(&config_dir).map_err(|e| format!("Failed to create config dir: {}", e))?;
     
-    let proxy_config_path = config_dir.join("proxy-config.yaml");
-    fs::write(&proxy_config_path, yaml)
-        .map_err(|e| format!("Failed to save config YAML: {}", e))
+    // Save to custom config file (preserved across restarts)
+    let custom_config_path = config_dir.join("proxy-config-custom.yaml");
+    fs::write(&custom_config_path, yaml)
+        .map_err(|e| format!("Failed to save custom config YAML: {}", e))
 }
