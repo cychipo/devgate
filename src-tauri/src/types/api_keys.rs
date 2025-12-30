@@ -16,6 +16,8 @@ pub struct GeminiApiKey {
     pub excluded_models: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prefix: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<ModelMapping>>,
 }
 
 // Model mapping with alias and name (used by Claude and OpenAI-compatible providers)

@@ -829,6 +829,18 @@ async fn start_proxy(
                     section.push_str(&format!("    proxy-url: \"{}\"\n", proxy_url));
                 }
             }
+            // Add model aliases if configured
+            if let Some(ref models) = key.models {
+                if !models.is_empty() {
+                    section.push_str("    models:\n");
+                    for model in models {
+                        section.push_str(&format!("      - name: {}\n", model.name));
+                        if let Some(ref alias) = model.alias {
+                            section.push_str(&format!("        alias: {}\n", alias));
+                        }
+                    }
+                }
+            }
         }
         section.push('\n');
         section
