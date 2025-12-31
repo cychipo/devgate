@@ -47,8 +47,8 @@ const deriveProvider = (model: ModelInfo): string => {
 	// GitHub Copilot
 	if (id.startsWith("github-copilot/")) return "copilot";
 
-	// Antigravity aliases (Gemini + Claude hybrids)
-	if (id.includes("gemini-claude") || id.startsWith("antigravity-")) {
+	// Antigravity aliases (Claude models via Vertex AI)
+	if (id.includes("antigravity") || id.startsWith("antigravity-")) {
 		return "antigravity";
 	}
 

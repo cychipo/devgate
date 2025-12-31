@@ -915,6 +915,39 @@ export async function deleteAllAuthFiles(): Promise<void> {
 }
 
 // ============================================================================
+// Proxy Auth Status Verification (CLIProxyAPI v6.6.72+)
+// ============================================================================
+
+// Detailed auth status from CLIProxyAPI's /api/auth/status endpoint
+export interface ProxyAuthProviderStatus {
+	authenticated: boolean;
+	accounts?: number;
+	account?: string;
+	error?: string;
+}
+
+export interface ProxyAuthProviders {
+	gemini?: ProxyAuthProviderStatus;
+	claude?: ProxyAuthProviderStatus;
+	openai?: ProxyAuthProviderStatus;
+	qwen?: ProxyAuthProviderStatus;
+	iflow?: ProxyAuthProviderStatus;
+	vertex?: ProxyAuthProviderStatus;
+	antigravity?: ProxyAuthProviderStatus;
+	copilot?: ProxyAuthProviderStatus;
+}
+
+export interface ProxyAuthStatus {
+	status: string; // "ok", "error", "unknown", "unsupported"
+	providers: ProxyAuthProviders;
+}
+
+// Verify auth status from CLIProxyAPI (v6.6.72+)
+export async function verifyProxyAuthStatus(): Promise<ProxyAuthStatus> {
+	return invoke("verify_proxy_auth_status");
+}
+
+// ============================================================================
 // Log Viewer
 // ============================================================================
 

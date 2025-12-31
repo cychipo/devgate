@@ -29,8 +29,9 @@ pub fn estimate_request_cost(model: &str, tokens_in: u32, tokens_out: u32) -> f6
 pub fn detect_provider_from_model(model: &str) -> String {
     let model_lower = model.to_lowercase();
     
-    // Antigravity models (gemini-claude-* pattern) - check BEFORE Claude
-    if model_lower.starts_with("gemini-claude") || model_lower.contains("antigravity") {
+    // Antigravity detection now relies on provider config, not model name prefix
+    // (Antigravity models are now named claude-* not gemini-claude-*)
+    if model_lower.contains("antigravity") {
         return "antigravity".to_string();
     }
     if model_lower.contains("claude") || model_lower.contains("sonnet") || 

@@ -1606,8 +1606,8 @@ export function SettingsPage() {
 						<div class="space-y-4 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
 							<p class="text-xs text-gray-500 dark:text-gray-400">
 								Configure the thinking/reasoning token budget for Antigravity
-								Claude models (gemini-claude-sonnet-4-5,
-								gemini-claude-opus-4-5). This applies to both OpenCode and
+								Claude models (claude-sonnet-4-5-thinking,
+								claude-opus-4-5-thinking). This applies to both OpenCode and
 								AmpCode CLI agents.
 							</p>
 

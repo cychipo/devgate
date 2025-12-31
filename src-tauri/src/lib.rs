@@ -267,7 +267,7 @@ fn extract_timestamp_from_line(line: &str) -> Option<u64> {
 // Also handles new format: | request_id | 200 | 6.656s | ip | POST "/path"
 fn parse_gin_log_line(line: &str, request_counter: &AtomicU64, model_cache: &std::sync::RwLock<std::collections::HashMap<String, String>>) -> Option<RequestLog> {
     // Check for model info in DEBUG lines and cache it
-    // Format: | f803bb77 | Use OAuth user@email.com for model gemini-claude-opus-4-5-thinking
+    // Format: | f803bb77 | Use OAuth user@email.com for model claude-opus-4-5-thinking
     if line.contains("for model ") {
         lazy_static::lazy_static! {
             static ref MODEL_REGEX: Regex = Regex::new(
@@ -900,16 +900,16 @@ payload:
   default:
     # Antigravity Claude models - thinking budget
     - models:
-        - name: "gemini-claude-sonnet-4-5"
+        - name: "claude-sonnet-4-5"
           protocol: "claude"
-        - name: "gemini-claude-sonnet-4-5-thinking"
+        - name: "claude-sonnet-4-5-thinking"
           protocol: "claude"
       params:
         "thinking.budget_tokens": {}
     - models:
-        - name: "gemini-claude-opus-4-5"
+        - name: "claude-opus-4-5"
           protocol: "claude"
-        - name: "gemini-claude-opus-4-5-thinking"
+        - name: "claude-opus-4-5-thinking"
           protocol: "claude"
       params:
         "thinking.budget_tokens": {}
@@ -3213,8 +3213,8 @@ async fn fetch_antigravity_quota() -> Result<Vec<types::AntigravityQuotaResult>,
                                                 "gemini-2.0-flash" => "Gemini 2.0 Flash",
                                                 "gemini-2.0-flash-lite" => "Gemini 2.0 Flash Lite",
                                                 "gemini-exp-1206" => "Gemini Exp",
-                                                "gemini-claude-sonnet-4-5" | "gemini-claude-sonnet-4-5-thinking" => "Claude Sonnet 4.5",
-                                                "gemini-claude-opus-4-5" | "gemini-claude-opus-4-5-thinking" => "Claude Opus 4.5",
+                                                "claude-sonnet-4-5" | "claude-sonnet-4-5-thinking" => "Claude Sonnet 4.5",
+                                                "claude-opus-4-5" | "claude-opus-4-5-thinking" => "Claude Opus 4.5",
                                                 "imagen-3.0-generate-002" => "Imagen 3",
                                                 _ => &model_name,
                                             }.to_string();
@@ -3902,10 +3902,10 @@ fn check_env_configured(var: &str, expected_prefix: &str) -> bool {
 // Source: https://models.dev (sst/models.dev repo)
 fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> (u64, u64) {
     // Return (context_limit, output_limit)
-    // First check model_id patterns (handles Antigravity/proxied models like gemini-claude-*)
+    // First check model_id patterns (handles Antigravity Claude models like claude-opus-4-5-thinking)
     let model_lower = model_id.to_lowercase();
     
-    // Claude models (direct or via Antigravity like gemini-claude-*)
+    // Claude models (direct or via Antigravity)
     if model_lower.contains("claude") {
         // Claude 4.5 models: 200K context, 64K output
         // Claude 3.5 haiku: 200K context, 8K output
@@ -3917,7 +3917,7 @@ fn get_model_limits(model_id: &str, owned_by: &str, source: &str) -> (u64, u64) 
         }
     }
     
-    // Gemini models (but not gemini-claude-* which is handled above)
+    // Gemini models
     if model_lower.contains("gemini") {
         // Gemini 2.5 models: 1M context, 65K output
         return (880964, 65536);
@@ -4040,12 +4040,12 @@ async fn configure_cli_agent(state: State<'_, AppState>, agent_id: String, model
                 None
             };
             
-            // Opus tier: claude-opus > gemini-claude-opus > gpt-5(high)
-            let opus_model = find_model(&["claude-opus-4", "gemini-claude-opus", "gpt-5"])
+            // Opus tier: claude-opus > gpt-5(high)
+            let opus_model = find_model(&["claude-opus-4", "claude-opus", "gpt-5"])
                 .unwrap_or_else(|| "claude-opus-4-1-20250805".to_string());
             
-            // Sonnet tier: claude-sonnet-4-5 > gemini-claude-sonnet > gpt-5
-            let sonnet_model = find_model(&["claude-sonnet-4-5", "claude-sonnet-4", "gemini-claude-sonnet", "gpt-5"])
+            // Sonnet tier: claude-sonnet-4-5 > gpt-5
+            let sonnet_model = find_model(&["claude-sonnet-4-5", "claude-sonnet-4", "claude-sonnet", "gpt-5"])
                 .unwrap_or_else(|| "claude-sonnet-4-5-20250929".to_string());
             
             // Haiku tier: claude-haiku > gemini-2.5-flash > gpt-5(minimal)
@@ -4119,8 +4119,8 @@ Edit your `~/.claude/settings.json` and replace the model values in the `env` se
 ### Gemini via Antigravity (with extended thinking)
 | Tier | Model ID |
 |------|----------|
-| Opus | `gemini-claude-opus-4-5-thinking` |
-| Sonnet | `gemini-claude-sonnet-4-5-thinking`, `gemini-claude-sonnet-4-5` |
+| Opus | `claude-opus-4-5-thinking` |
+| Sonnet | `claude-sonnet-4-5-thinking`, `claude-sonnet-4-5` |
 | Haiku | `gemini-2.5-flash`, `gemini-2.5-flash-lite` |
 
 ### Gemini (Google)
@@ -4165,8 +4165,8 @@ Edit your `~/.claude/settings.json` and replace the model values in the `env` se
 
 ### Use Gemini Antigravity (with thinking)
 ```json
-"ANTHROPIC_DEFAULT_OPUS_MODEL": "gemini-claude-opus-4-5-thinking",
-"ANTHROPIC_DEFAULT_SONNET_MODEL": "gemini-claude-sonnet-4-5-thinking",
+"ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-5-thinking",
+"ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-4-5-thinking",
 "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gemini-2.5-flash"
 ```
 
@@ -5721,6 +5721,51 @@ async fn delete_all_auth_files(state: State<'_, AppState>) -> Result<(), String>
 }
 
 // ============================================================================
+// Proxy Auth Status Verification (CLIProxyAPI v6.6.72+)
+// ============================================================================
+
+// Verify auth status from CLIProxyAPI's /api/auth/status endpoint
+#[tauri::command]
+async fn verify_proxy_auth_status(state: State<'_, AppState>) -> Result<types::ProxyAuthStatus, String> {
+    let port = state.config.lock().unwrap().port;
+    
+    // Check if proxy is running first
+    let proxy_running = state.proxy_status.lock().unwrap().running;
+    if !proxy_running {
+        return Ok(types::ProxyAuthStatus::default());
+    }
+    
+    // The new endpoint in CLIProxyAPI v6.6.72+ is /api/auth/status
+    let url = format!("http://127.0.0.1:{}/api/auth/status", port);
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", &get_management_key())
+        .send()
+        .await
+        .map_err(|e| format!("Failed to verify auth status: {}", e))?;
+    
+    if !response.status().is_success() {
+        // Fallback: endpoint might not exist in older CLIProxyAPI versions
+        return Ok(types::ProxyAuthStatus {
+            status: "unsupported".to_string(),
+            providers: types::ProxyAuthProviders::default(),
+        });
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    
+    // Convert snake_case to camelCase if needed
+    let json_str = serde_json::to_string(&json).map_err(|e| e.to_string())?;
+    let converted = json_str
+        .replace("\"account_count\"", "\"accounts\"")
+        .replace("\"error_message\"", "\"error\"");
+    
+    serde_json::from_str(&converted).map_err(|e| format!("Failed to parse auth status: {}", e))
+}
+
+// ============================================================================
 // Management API Settings (Runtime Updates)
 // ============================================================================
 
@@ -6361,6 +6406,7 @@ pub fn run() {
             toggle_auth_file,
             download_auth_file,
             delete_all_auth_files,
+            verify_proxy_auth_status,
             // Log Viewer
             get_logs,
             clear_logs,
