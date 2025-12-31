@@ -3543,6 +3543,110 @@ async fn test_openai_provider(base_url: String, api_key: String) -> Result<Provi
     })
 }
 
+// Fetch models from all configured OpenAI-compatible providers
+#[tauri::command]
+async fn fetch_openai_compatible_models(state: State<'_, AppState>) -> Result<Vec<types::OpenAICompatibleProviderModels>, String> {
+    // Get all configured OpenAI-compatible providers
+    let providers = get_openai_compatible_providers(state.clone()).await?;
+    
+    if providers.is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+    
+    let mut results = Vec::new();
+    
+    for provider in providers {
+        let base_url = provider.base_url.trim_end_matches('/');
+        let api_key = provider.api_key_entries.first()
+            .map(|e| e.api_key.clone())
+            .unwrap_or_default();
+        
+        if api_key.is_empty() {
+            results.push(types::OpenAICompatibleProviderModels {
+                provider_name: provider.name.clone(),
+                base_url: provider.base_url.clone(),
+                models: Vec::new(),
+                error: Some("No API key configured".to_string()),
+            });
+            continue;
+        }
+        
+        // Try multiple endpoint patterns
+        let endpoints = vec![
+            format!("{}/models", base_url),
+            format!("{}/v1/models", base_url),
+        ];
+        
+        let mut found_models = false;
+        
+        for endpoint in &endpoints {
+            let response = client.get(endpoint)
+                .header("Authorization", format!("Bearer {}", api_key))
+                .send()
+                .await;
+            
+            match response {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(json) = resp.json::<serde_json::Value>().await {
+                        let models: Vec<types::OpenAICompatibleModel> = json
+                            .get("data")
+                            .and_then(|d| d.as_array())
+                            .map(|arr| {
+                                arr.iter()
+                                    .filter_map(|m| {
+                                        let id = m.get("id")?.as_str()?.to_string();
+                                        Some(types::OpenAICompatibleModel {
+                                            id,
+                                            owned_by: m.get("owned_by").and_then(|v| v.as_str()).map(String::from),
+                                            created: m.get("created").and_then(|v| v.as_i64()),
+                                        })
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default();
+                        
+                        results.push(types::OpenAICompatibleProviderModels {
+                            provider_name: provider.name.clone(),
+                            base_url: provider.base_url.clone(),
+                            models,
+                            error: None,
+                        });
+                        found_models = true;
+                        break;
+                    }
+                }
+                Ok(resp) if resp.status().as_u16() == 401 || resp.status().as_u16() == 403 => {
+                    results.push(types::OpenAICompatibleProviderModels {
+                        provider_name: provider.name.clone(),
+                        base_url: provider.base_url.clone(),
+                        models: Vec::new(),
+                        error: Some("Authentication failed".to_string()),
+                    });
+                    found_models = true;
+                    break;
+                }
+                _ => continue, // Try next endpoint
+            }
+        }
+        
+        if !found_models {
+            results.push(types::OpenAICompatibleProviderModels {
+                provider_name: provider.name.clone(),
+                base_url: provider.base_url.clone(),
+                models: Vec::new(),
+                error: Some("Could not fetch models - endpoint not found".to_string()),
+            });
+        }
+    }
+    
+    Ok(results)
+}
+
 // Handle deep link OAuth callback
 fn handle_deep_link(app: &tauri::AppHandle, urls: Vec<url::Url>) {
     for url in urls {
@@ -6404,6 +6508,8 @@ pub fn run() {
             import_usage_stats,
             get_available_models,
             test_openai_provider,
+            fetch_openai_compatible_models,
+            fetch_openai_compatible_models,
             // API Keys Management
             get_gemini_api_keys,
             set_gemini_api_keys,

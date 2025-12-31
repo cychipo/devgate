@@ -21,3 +21,23 @@ pub struct ProviderTestResult {
     pub latency_ms: Option<u64>,
     pub models_found: Option<u32>,
 }
+
+// Models fetched from an OpenAI-compatible provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAICompatibleProviderModels {
+    pub provider_name: String,
+    pub base_url: String,
+    pub models: Vec<OpenAICompatibleModel>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenAICompatibleModel {
+    pub id: String,
+    #[serde(default)]
+    pub owned_by: Option<String>,
+    #[serde(default)]
+    pub created: Option<i64>,
+}

@@ -985,6 +985,31 @@ export async function getAvailableModels(): Promise<AvailableModel[]> {
 }
 
 // ============================================================================
+// OpenAI-Compatible Provider Models
+// ============================================================================
+
+// Models fetched from an OpenAI-compatible provider
+export interface OpenAICompatibleModel {
+	id: string;
+	ownedBy?: string;
+	created?: number;
+}
+
+export interface OpenAICompatibleProviderModels {
+	providerName: string;
+	baseUrl: string;
+	models: OpenAICompatibleModel[];
+	error?: string;
+}
+
+// Fetch models from all configured OpenAI-compatible providers
+export async function fetchOpenaiCompatibleModels(): Promise<
+	OpenAICompatibleProviderModels[]
+> {
+	return invoke("fetch_openai_compatible_models");
+}
+
+// ============================================================================
 // Management API Settings (Runtime Updates)
 // ============================================================================
 
