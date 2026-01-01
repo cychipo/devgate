@@ -86,7 +86,14 @@ import { themeStore } from "../stores/theme";
 import { toastStore } from "../stores/toast";
 
 export function SettingsPage() {
-	const { config, setConfig, setCurrentPage, authStatus } = appStore;
+	const {
+		config,
+		setConfig,
+		setCurrentPage,
+		authStatus,
+		settingsTab,
+		setSettingsTab,
+	} = appStore;
 	const [saving, setSaving] = createSignal(false);
 	const [activeTab, setActiveTab] = createSignal<SettingsTab>("general");
 	const [appVersion, setAppVersion] = createSignal("0.0.0");
@@ -95,6 +102,23 @@ export function SettingsPage() {
 	const [configuringAgent, setConfiguringAgent] = createSignal<string | null>(
 		null,
 	);
+
+	// Handle navigation from other components (e.g., CopilotCard)
+	createEffect(() => {
+		const tab = settingsTab();
+		if (
+			tab &&
+			(tab === "general" ||
+				tab === "providers" ||
+				tab === "models" ||
+				tab === "advanced" ||
+				tab === "ssh" ||
+				tab === "cloudflare")
+		) {
+			setActiveTab(tab);
+			setSettingsTab(null); // Clear after use
+		}
+	});
 
 	// Fetch app version on mount
 	onMount(async () => {

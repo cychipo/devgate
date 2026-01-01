@@ -21,7 +21,11 @@ function App() {
 		initialize();
 
 		// Listen for navigation events from child components
-		const handleNavigateToSettings = () => {
+		const handleNavigateToSettings = (e: Event) => {
+			const detail = (e as CustomEvent).detail;
+			if (detail?.tab) {
+				appStore.setSettingsTab(detail.tab);
+			}
 			setCurrentPage("settings");
 		};
 		window.addEventListener("navigate-to-settings", handleNavigateToSettings);

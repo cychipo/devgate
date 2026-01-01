@@ -311,9 +311,11 @@ export function CopilotCard(props: CopilotCardProps) {
 											href="#settings"
 											onClick={(e) => {
 												e.preventDefault();
-												// Navigate to settings - this will be handled by the parent
+												// Navigate to settings providers tab
 												window.dispatchEvent(
-													new CustomEvent("navigate-to-settings"),
+													new CustomEvent("navigate-to-settings", {
+														detail: { tab: "providers" },
+													}),
 												);
 											}}
 											class="underline font-medium hover:text-red-800 dark:hover:text-red-200"
