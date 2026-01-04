@@ -1,11 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::types::{
-    AmpModelMapping, AmpOpenAIProvider,
-    ClaudeApiKey, GeminiApiKey, CodexApiKey,
-    CopilotConfig, SshConfig,
-    amp::generate_uuid,
-    cloudflare::CloudflareConfig,
+    amp::generate_uuid, cloudflare::CloudflareConfig, AmpModelMapping, AmpOpenAIProvider,
+    ClaudeApiKey, CodexApiKey, CopilotConfig, GeminiApiKey, SshConfig, VertexApiKey,
 };
 
 /// App configuration persisted to config.json
@@ -58,6 +55,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub codex_api_keys: Vec<CodexApiKey>,
     #[serde(default)]
+    pub vertex_api_keys: Vec<VertexApiKey>,
+    #[serde(default)]
     pub thinking_budget_mode: String,
     #[serde(default)]
     pub thinking_budget_custom: u32,
@@ -109,7 +108,6 @@ fn default_routing_strategy() -> String {
     "round-robin".to_string()
 }
 
-
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
@@ -137,6 +135,7 @@ impl Default for AppConfig {
             claude_api_keys: Vec::new(),
             gemini_api_keys: Vec::new(),
             codex_api_keys: Vec::new(),
+            vertex_api_keys: Vec::new(),
             thinking_budget_mode: "medium".to_string(),
             thinking_budget_custom: 16000,
             reasoning_effort_level: "medium".to_string(),
@@ -144,7 +143,7 @@ impl Default for AppConfig {
             max_retry_interval: 0,
             proxy_api_key: "proxypal-local".to_string(),
             management_key: "proxypal-mgmt-key".to_string(),
-commercial_mode: false,
+            commercial_mode: false,
             ws_auth: false,
             ssh_configs: Vec::new(),
             cloudflare_configs: Vec::new(),
@@ -156,11 +155,13 @@ commercial_mode: false,
 pub fn get_proxypal_config_dir() -> std::path::PathBuf {
     let config_dir = dirs::config_dir()
         .unwrap_or_else(|| {
-            eprintln!("[ProxyPal] Warning: Could not determine config directory, using current directory");
+            eprintln!(
+                "[ProxyPal] Warning: Could not determine config directory, using current directory"
+            );
             std::path::PathBuf::from(".")
         })
         .join("proxypal");
-    
+
     if let Err(e) = std::fs::create_dir_all(&config_dir) {
         eprintln!(
             "[ProxyPal] Error: Failed to create config directory '{}': {}",
@@ -168,7 +169,7 @@ pub fn get_proxypal_config_dir() -> std::path::PathBuf {
             e
         );
     }
-    
+
     config_dir
 }
 
@@ -202,7 +203,11 @@ pub fn load_config() -> AppConfig {
                 if let Some(old_provider) = config.amp_openai_provider.take() {
                     if config.amp_openai_providers.is_empty() {
                         eprintln!("[ProxyPal] Migrating config from old provider format to array format...");
-                        eprintln!("[ProxyPal] Old provider: {} with {} models", old_provider.name, old_provider.models.len());
+                        eprintln!(
+                            "[ProxyPal] Old provider: {} with {} models",
+                            old_provider.name,
+                            old_provider.models.len()
+                        );
                         for (i, model) in old_provider.models.iter().enumerate() {
                             eprintln!("[ProxyPal]   Preserving model {}: {}", i, model.name);
                         }
@@ -234,7 +239,11 @@ pub fn save_config_to_file(config: &AppConfig) -> Result<(), String> {
 
     // Ensure config directory exists
     if let Err(e) = std::fs::create_dir_all(config_dir) {
-        return Err(format!("Failed to create config directory '{}': {}", config_dir.display(), e));
+        return Err(format!(
+            "Failed to create config directory '{}': {}",
+            config_dir.display(),
+            e
+        ));
     }
 
     // Serialize config to JSON
@@ -252,7 +261,11 @@ pub fn save_config_to_file(config: &AppConfig) -> Result<(), String> {
             Err(e) => {
                 last_error = e.to_string();
                 if attempt < 2 {
-                    eprintln!("[ProxyPal] Save attempt {} failed, retrying: {}", attempt + 1, e);
+                    eprintln!(
+                        "[ProxyPal] Save attempt {} failed, retrying: {}",
+                        attempt + 1,
+                        e
+                    );
                     std::thread::sleep(std::time::Duration::from_millis(100));
                 }
             }
@@ -261,7 +274,10 @@ pub fn save_config_to_file(config: &AppConfig) -> Result<(), String> {
 
     // Verify temp file was written successfully
     if !temp_path.exists() {
-        return Err(format!("Failed to write config to temp file (attempted 3 times): {}", last_error));
+        return Err(format!(
+            "Failed to write config to temp file (attempted 3 times): {}",
+            last_error
+        ));
     }
 
     // Atomic rename from temp to actual config file

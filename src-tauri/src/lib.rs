@@ -14,7 +14,7 @@ use crate::types::{
     UsageStats, TimeSeriesPoint, ModelUsage, ProviderUsage, RequestHistory,
     Aggregate, ModelStats,
     CopilotStatus, CopilotApiDetection, CopilotApiInstallResult,
-    ClaudeApiKey, GeminiApiKey, CodexApiKey, OpenAICompatibleProvider,
+    ClaudeApiKey, GeminiApiKey, CodexApiKey, VertexApiKey, OpenAICompatibleProvider,
     ThinkingBudgetSettings, ReasoningEffortSettings,
     AuthFile, LogEntry, DetectedTool, AgentStatus,
     AvailableModel, ProviderTestResult, ProviderHealth, HealthStatus,
@@ -847,18 +847,6 @@ async fn start_proxy(
             if let Some(ref proxy_url) = key.proxy_url {
                 if !proxy_url.is_empty() {
                     section.push_str(&format!("    proxy-url: \"{}\"\n", proxy_url));
-                }
-            }
-            // Add model aliases if configured
-            if let Some(ref models) = key.models {
-                if !models.is_empty() {
-                    section.push_str("    models:\n");
-                    for model in models {
-                        section.push_str(&format!("      - name: {}\n", model.name));
-                        if let Some(ref alias) = model.alias {
-                            section.push_str(&format!("        alias: {}\n", alias));
-                        }
-                    }
                 }
             }
         }
@@ -5544,6 +5532,70 @@ async fn delete_codex_api_key(state: State<'_, AppState>, index: usize) -> Resul
     set_codex_api_keys(state, keys).await
 }
 
+// Vertex API Keys
+#[tauri::command]
+async fn get_vertex_api_keys(state: State<'_, AppState>) -> Result<Vec<VertexApiKey>, String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "vertex-api-key");
+    
+    let client = build_management_client();
+    let response = client
+        .get(&url)
+        .header("X-Management-Key", &get_management_key())
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch Vertex API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+    
+    let json: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
+    convert_api_key_response(json, "vertex-api-key")
+}
+
+#[tauri::command]
+async fn set_vertex_api_keys(state: State<'_, AppState>, keys: Vec<VertexApiKey>) -> Result<(), String> {
+    let port = state.config.lock().unwrap().port;
+    let url = get_management_url(port, "vertex-api-key");
+    
+    let client = build_management_client();
+    let body = convert_to_management_format(&keys)?;
+    
+    let response = client
+        .put(&url)
+        .header("X-Management-Key", &get_management_key())
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to set Vertex API keys: {}", e))?;
+    
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response.text().await.unwrap_or_default();
+        return Err(format!("Failed to set Vertex API keys: {} - {}", status, text));
+    }
+    
+    Ok(())
+}
+
+#[tauri::command]
+async fn add_vertex_api_key(state: State<'_, AppState>, key: VertexApiKey) -> Result<(), String> {
+    let mut keys = get_vertex_api_keys(state.clone()).await?;
+    keys.push(key);
+    set_vertex_api_keys(state, keys).await
+}
+
+#[tauri::command]
+async fn delete_vertex_api_key(state: State<'_, AppState>, index: usize) -> Result<(), String> {
+    let mut keys = get_vertex_api_keys(state.clone()).await?;
+    if index >= keys.len() {
+        return Err("Index out of bounds".to_string());
+    }
+    keys.remove(index);
+    set_vertex_api_keys(state, keys).await
+}
+
 // ============================================
 // Provider Health Check
 // ============================================
@@ -6930,6 +6982,10 @@ pub fn run() {
             set_codex_api_keys,
             add_codex_api_key,
             delete_codex_api_key,
+            get_vertex_api_keys,
+            set_vertex_api_keys,
+            add_vertex_api_key,
+            delete_vertex_api_key,
             // Thinking Budget Settings
             get_thinking_budget_settings,
             set_thinking_budget_settings,

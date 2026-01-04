@@ -16,8 +16,20 @@ pub struct GeminiApiKey {
     pub excluded_models: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub prefix: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VertexApiKey {
+    pub api_key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub models: Option<Vec<ModelMapping>>,
+    pub project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub location: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prefix: Option<String>,
 }
 
 // Model mapping with alias and name (used by Claude and OpenAI-compatible providers)
