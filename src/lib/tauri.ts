@@ -774,6 +774,31 @@ export async function deleteCodexApiKey(index: number): Promise<void> {
 	return invoke("delete_codex_api_key", { index });
 }
 
+// Vertex API Keys
+export interface VertexApiKey {
+	apiKey: string;
+	projectId?: string;
+	location?: string;
+	baseUrl?: string;
+	prefix?: string;
+}
+
+export async function getVertexApiKeys(): Promise<VertexApiKey[]> {
+	return invoke("get_vertex_api_keys");
+}
+
+export async function setVertexApiKeys(keys: VertexApiKey[]): Promise<void> {
+	return invoke("set_vertex_api_keys", { keys });
+}
+
+export async function addVertexApiKey(key: VertexApiKey): Promise<void> {
+	return invoke("add_vertex_api_key", { key });
+}
+
+export async function deleteVertexApiKey(index: number): Promise<void> {
+	return invoke("delete_vertex_api_key", { index });
+}
+
 // ============================================
 // Thinking Budget Settings
 // ============================================
