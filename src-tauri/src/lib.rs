@@ -918,12 +918,10 @@ async fn start_proxy(
         - name: "gemini-3-pro-preview*"
       params:
         generationConfig.thinkingConfig.thinkingLevel: "{}"
-        generationConfig.thinkingConfig.includeThoughts: true
     - models:
         - name: "gemini-3-flash-preview*"
       params:
         generationConfig.thinkingConfig.thinkingLevel: "{}"
-        generationConfig.thinkingConfig.includeThoughts: true
 "#, gemini3_thinking_level, gemini3_thinking_level)
     } else {
         String::new()
