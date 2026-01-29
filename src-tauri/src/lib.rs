@@ -968,10 +968,15 @@ async fn start_proxy(
 payload:
   default:
     # Antigravity Claude models - thinking budget
+    # Include both direct names and gemini-prefixed variants for Antigravity provider
     - models:
         - name: "claude-sonnet-4-5"
           protocol: "claude"
         - name: "claude-sonnet-4-5-thinking"
+          protocol: "claude"
+        - name: "gemini-claude-sonnet-4-5"
+          protocol: "claude"
+        - name: "gemini-claude-sonnet-4-5-thinking"
           protocol: "claude"
       params:
         "thinking.budget_tokens": {}
@@ -979,6 +984,10 @@ payload:
         - name: "claude-opus-4-5"
           protocol: "claude"
         - name: "claude-opus-4-5-thinking"
+          protocol: "claude"
+        - name: "gemini-claude-opus-4-5"
+          protocol: "claude"
+        - name: "gemini-claude-opus-4-5-thinking"
           protocol: "claude"
       params:
         "thinking.budget_tokens": {}
