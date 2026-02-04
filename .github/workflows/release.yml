@@ -211,9 +211,114 @@ jobs:
             Get-ChildItem -Recurse -Filter "*.exe" src-tauri/target | Select-Object FullName
           }
 
+  generate-changelog:
+    name: Generate Changelog
+    needs: release
+    runs-on: ubuntu-latest
+    if: needs.release.result == 'success'
+    outputs:
+      changelog: ${{ steps.changelog.outputs.changelog }}
+      sidecar_version: ${{ steps.changelog.outputs.sidecar_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog from commits and CLIProxyAPIPlus
+        id: changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+
+          # Get previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          CURRENT_TAG="${{ github.ref_name }}"
+
+          echo "Previous tag: $PREV_TAG"
+          echo "Current tag: $CURRENT_TAG"
+
+          # Generate ProxyPal commits changelog
+          PROXYPAL_CHANGES=""
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log --oneline "$PREV_TAG..$CURRENT_TAG" --pretty=format:"- %s" 2>/dev/null || echo "")
+            if [ -n "$COMMITS" ]; then
+              PROXYPAL_CHANGES="$COMMITS"
+            fi
+          fi
+
+          # Get CLIProxyAPIPlus latest release info
+          SIDECAR_RELEASE=$(gh release view --repo router-for-me/CLIProxyAPIPlus --json tagName,body 2>/dev/null || echo "{}")
+          SIDECAR_VERSION=$(echo "$SIDECAR_RELEASE" | jq -r '.tagName // "unknown"')
+          SIDECAR_BODY=$(echo "$SIDECAR_RELEASE" | jq -r '.body // ""')
+
+          echo "sidecar_version=$SIDECAR_VERSION" >> $GITHUB_OUTPUT
+
+          # Extract key fixes/features from CLIProxyAPIPlus changelog (filter out merge commits)
+          SIDECAR_HIGHLIGHTS=""
+          if [ -n "$SIDECAR_BODY" ]; then
+            # Extract lines with fix/feat/Fixed and format them
+            SIDECAR_HIGHLIGHTS=$(echo "$SIDECAR_BODY" | grep -E '(fix|feat|Fixed|refactor)\(' | head -10 | sed 's/^- \[.*\] /- /' | sed 's/^/- /' || echo "")
+          fi
+
+          # Build full changelog
+          CHANGELOG="### ProxyPal Changes"
+          if [ -n "$PROXYPAL_CHANGES" ]; then
+            CHANGELOG="$CHANGELOG
+          $PROXYPAL_CHANGES"
+          else
+            CHANGELOG="$CHANGELOG
+          - Release $CURRENT_TAG"
+          fi
+
+          CHANGELOG="$CHANGELOG
+
+          ### Sidecar: CLIProxyAPIPlus $SIDECAR_VERSION"
+
+          if [ -n "$SIDECAR_HIGHLIGHTS" ]; then
+            CHANGELOG="$CHANGELOG
+          $SIDECAR_HIGHLIGHTS"
+          fi
+
+          # Escape for GitHub output
+          CHANGELOG="${CHANGELOG//'%'/'%25'}"
+          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
+          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+
+          echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
+
+      - name: Update release body with changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SIDECAR_VERSION="${{ steps.changelog.outputs.sidecar_version }}"
+
+          # Build release body
+          cat > /tmp/release_body.md << 'RELEASE_EOF'
+          ## What's New
+
+          ${{ steps.changelog.outputs.changelog }}
+
+          ## Downloads
+
+          | Platform | Download |
+          |----------|----------|
+          | macOS (Apple Silicon) | `.dmg` (aarch64) |
+          | macOS (Intel) | `.dmg` (x64) |
+          | Windows | `.exe` installer |
+          | Windows (Portable) | `.zip` (no install required) |
+          | Linux | `.deb` package |
+
+          ---
+          *Bundled sidecar: CLIProxyAPIPlus $SIDECAR_VERSION*
+          RELEASE_EOF
+
+          # Update release with new body
+          gh release edit "${{ github.ref_name }}" --notes-file /tmp/release_body.md || true
+
   notify:
     name: Discord Notification
-    needs: release
+    needs: [release, generate-changelog]
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -221,9 +326,24 @@ jobs:
         if: ${{ needs.release.result == 'success' }}
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          # Fetch the release body (which now contains the changelog)
+          RELEASE_BODY=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/${{ github.ref_name }}" \
+            | jq -r '.body // "New version available"')
+
+          # Truncate if too long for Discord (max 4096 chars for embed description)
+          if [ ${#RELEASE_BODY} -gt 3800 ]; then
+            RELEASE_BODY="${RELEASE_BODY:0:3800}...\n\n[See full changelog](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
+          fi
+
+          # Escape for JSON
+          RELEASE_BODY=$(echo "$RELEASE_BODY" | jq -Rs .)
+
+          # Send Discord notification with changelog
           curl -H "Content-Type: application/json" \
-            -d "{\"embeds\": [{\"title\": \"ProxyPal ${{ github.ref_name }} Released!\", \"description\": \"New version available for download.\n\n[Download on GitHub](${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }})\", \"color\": 5793266}]}" \
+            -d "{\"embeds\": [{\"title\": \"🚀 ProxyPal ${{ github.ref_name }} Released!\", \"description\": $RELEASE_BODY, \"color\": 5793266, \"url\": \"${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}\"}]}" \
             $DISCORD_WEBHOOK
 
       - name: Discord notification (failure)
@@ -232,5 +352,5 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         run: |
           curl -H "Content-Type: application/json" \
-            -d "{\"embeds\": [{\"title\": \"ProxyPal Release Failed\", \"description\": \"**Tag:** \`${{ github.ref_name }}\`\n\n[View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\", \"color\": 15158332}]}" \
+            -d "{\"embeds\": [{\"title\": \"❌ ProxyPal Release Failed\", \"description\": \"**Tag:** \`${{ github.ref_name }}\`\n\n[View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\", \"color\": 15158332}]}" \
             $DISCORD_WEBHOOK
