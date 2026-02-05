@@ -215,7 +215,7 @@ jobs:
     name: Generate Changelog
     needs: release
     runs-on: ubuntu-latest
-    if: needs.release.result == 'success'
+    if: always() && !cancelled()
     outputs:
       changelog: ${{ steps.changelog.outputs.changelog }}
       sidecar_version: ${{ steps.changelog.outputs.sidecar_version }}
