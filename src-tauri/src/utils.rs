@@ -19,7 +19,7 @@ pub fn estimate_request_cost(model: &str, tokens_in: u32, tokens_out: u32) -> f6
         m if m.contains("qwen") => (0.50, 2.0),
         _ => (1.0, 3.0),
     };
-    
+
     let input_cost = (tokens_in as f64 / 1_000_000.0) * input_rate;
     let output_cost = (tokens_out as f64 / 1_000_000.0) * output_rate;
     input_cost + output_cost
@@ -28,18 +28,42 @@ pub fn estimate_request_cost(model: &str, tokens_in: u32, tokens_out: u32) -> f6
 /// Detect provider from model name
 pub fn detect_provider_from_model(model: &str) -> String {
     let model_lower = model.to_lowercase();
-    
-    // Antigravity detection now relies on provider config, not model name prefix
-    // (Antigravity models are now named claude-* not gemini-claude-*)
+
+    // Antigravity detection: explicit "antigravity" in name, or known Antigravity-only model IDs
+    // These Gemini models are served exclusively by Antigravity (not Google/Vertex)
     if model_lower.contains("antigravity") {
         return "antigravity".to_string();
     }
-    if model_lower.contains("claude") || model_lower.contains("sonnet") || 
-       model_lower.contains("opus") || model_lower.contains("haiku") {
+    // Antigravity-exclusive Gemini model variants (no "-preview" suffix)
+    if model_lower == "gemini-3-flash"
+        || model_lower == "gemini-3-pro-high"
+        || model_lower == "gemini-3-pro-low"
+        || model_lower == "gemini-3-pro-image"
+        || model_lower == "tab_flash_lite_preview"
+        || model_lower == "gpt-oss-120b-medium"
+    {
+        return "antigravity".to_string();
+    }
+    // Antigravity thinking variants of Claude models
+    if model_lower.ends_with("-thinking")
+        && (model_lower.contains("claude")
+            || model_lower.contains("sonnet")
+            || model_lower.contains("opus"))
+    {
+        return "antigravity".to_string();
+    }
+    if model_lower.contains("claude")
+        || model_lower.contains("sonnet")
+        || model_lower.contains("opus")
+        || model_lower.contains("haiku")
+    {
         return "claude".to_string();
     }
-    if model_lower.contains("gpt") || model_lower.contains("codex") || 
-       model_lower.starts_with("o3") || model_lower.starts_with("o1") {
+    if model_lower.contains("gpt")
+        || model_lower.contains("codex")
+        || model_lower.starts_with("o3")
+        || model_lower.starts_with("o1")
+    {
         return "openai".to_string();
     }
     if model_lower.contains("gemini") {
@@ -54,10 +78,7 @@ pub fn detect_provider_from_model(model: &str) -> String {
     if model_lower.contains("glm") {
         return "zhipu".to_string();
     }
-    if model_lower.contains("antigravity") {
-        return "antigravity".to_string();
-    }
-    
+
     "unknown".to_string()
 }
 
@@ -78,7 +99,7 @@ pub fn detect_provider_from_path(path: &str) -> Option<String> {
             }
         }
     }
-    
+
     // Fallback: infer from standard endpoint paths
     if path.contains("/v1/messages") || path.contains("/messages") {
         return Some("claude".to_string());
@@ -86,10 +107,13 @@ pub fn detect_provider_from_path(path: &str) -> Option<String> {
     if path.contains("/v1/chat/completions") || path.contains("/chat/completions") {
         return Some("openai-compat".to_string());
     }
-    if path.contains("/v1beta") || path.contains(":generateContent") || path.contains(":streamGenerateContent") {
+    if path.contains("/v1beta")
+        || path.contains(":generateContent")
+        || path.contains(":streamGenerateContent")
+    {
         return Some("gemini".to_string());
     }
-    
+
     None
 }
 

@@ -952,15 +952,29 @@ async fn start_proxy(
     let gemini_override_section = if config.gemini_thinking_injection {
         format!(r#"  override:
     # Gemini 3 models - thinking level (uses override, not default)
+    # Google/Vertex variants (with -preview suffix)
     - models:
         - name: "gemini-3-pro-preview*"
       params:
-        generationConfig.thinkingConfig.thinkingLevel: "{}"
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
     - models:
         - name: "gemini-3-flash-preview*"
       params:
-        generationConfig.thinkingConfig.thinkingLevel: "{}"
-"#, gemini3_thinking_level, gemini3_thinking_level)
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    # Antigravity variants (without -preview suffix)
+    - models:
+        - name: "gemini-3-pro-high"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    - models:
+        - name: "gemini-3-pro-low"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+    - models:
+        - name: "gemini-3-flash"
+      params:
+        generationConfig.thinkingConfig.thinkingLevel: "{0}"
+"#, gemini3_thinking_level)
     } else {
         String::new()
     };
