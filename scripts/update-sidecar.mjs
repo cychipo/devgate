@@ -7,6 +7,7 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
+  readFileSync,
   chmodSync,
   copyFileSync,
   readdirSync,
@@ -19,6 +20,32 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const BINARIES_DIR = join(__dirname, "..", "src-tauri", "binaries");
 const REPO =
   process.env.CLIPROXYAPI_REPO || "router-for-me/CLIProxyAPIPlus";
+
+/**
+ * Validate that a file is a real executable, not a gzip archive or other invalid format.
+ * Checks magic bytes: gzip (1f 8b), Mach-O (cf fa ed fe), ELF (7f 45 4c 46), PE (4d 5a)
+ */
+function validateBinary(filePath) {
+  const buf = readFileSync(filePath);
+  if (buf.length < 4) {
+    throw new Error(`Binary too small (${buf.length} bytes): ${filePath}`);
+  }
+  // Reject gzip archives
+  if (buf[0] === 0x1f && buf[1] === 0x8b) {
+    rmSync(filePath, { force: true });
+    throw new Error(
+      `Installed file is a gzip archive, not an executable: ${filePath}\n` +
+      `This usually means the archive was copied instead of extracted.`
+    );
+  }
+  // Verify it's a known executable format
+  const isMachO = buf[0] === 0xcf && buf[1] === 0xfa && buf[2] === 0xed && buf[3] === 0xfe;
+  const isELF = buf[0] === 0x7f && buf[1] === 0x45 && buf[2] === 0x4c && buf[3] === 0x46;
+  const isPE = buf[0] === 0x4d && buf[1] === 0x5a;
+  if (!isMachO && !isELF && !isPE) {
+    console.warn(`Warning: Binary has unknown format (magic: ${buf.slice(0, 4).toString("hex")}): ${filePath}`);
+  }
+}
 
 function getCurrentTarget() {
   const { platform, arch } = process;
@@ -76,13 +103,18 @@ function findBinary(dir) {
     names.push(...names.map((n) => n + ".exe"));
   }
 
+  // Skip archive extensions — we want the executable, not the archive
+  const archiveExts = [".tar.gz", ".tar", ".gz", ".zip", ".tgz"];
+
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
       const found = findBinary(fullPath);
       if (found) return found;
     }
-    if (names.some((n) => entry.name === n || entry.name.startsWith(n))) {
+    // Skip archive files
+    if (archiveExts.some((ext) => entry.name.endsWith(ext))) continue;
+    if (names.some((n) => entry.name === n)) {
       return fullPath;
     }
   }
@@ -138,6 +170,9 @@ async function downloadTarget(target, version) {
     }
 
     console.log(`Installed: ${destPath}`);
+
+    // Validate the installed binary is a real executable, not a gzip/archive
+    validateBinary(destPath);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
