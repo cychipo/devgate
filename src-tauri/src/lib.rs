@@ -356,6 +356,7 @@ pub fn run() {
             commands::auth::refresh_auth_status,
             commands::auth::open_oauth,
             commands::auth::get_oauth_url,
+            commands::auth::get_device_code,
             commands::auth::open_url_in_browser,
             commands::auth::poll_oauth_status,
             commands::auth::complete_oauth,

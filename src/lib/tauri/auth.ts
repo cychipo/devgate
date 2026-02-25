@@ -22,8 +22,20 @@ export interface OAuthUrlResponse {
   url: string;
 }
 
+export interface DeviceCodeResponse {
+  expiresIn: number;
+  interval: number;
+  state: string;
+  userCode: string;
+  verificationUri: string;
+}
+
 export async function getOAuthUrl(provider: Provider): Promise<OAuthUrlResponse> {
   return invoke("get_oauth_url", { provider });
+}
+
+export async function getDeviceCode(provider: Provider): Promise<DeviceCodeResponse> {
+  return invoke("get_device_code", { provider });
 }
 
 export async function pollOAuthStatus(oauthState: string): Promise<boolean> {

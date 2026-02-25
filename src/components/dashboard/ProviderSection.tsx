@@ -14,8 +14,10 @@ interface ProviderSectionProps {
   authStatus: Record<Provider, number>;
   connected: ProviderInfo[];
   connectingProvider: Provider | null;
+  deviceCodeProviders?: Set<Provider>;
   disconnected: ProviderInfo[];
   onConnect: (provider: Provider) => Promise<void>;
+  onDeviceCodeConnect?: (provider: Provider) => Promise<void>;
   onDisconnect: (provider: Provider) => Promise<void>;
   proxyRunning: boolean;
   recentlyConnected: Set<Provider>;
@@ -31,7 +33,9 @@ export function ProviderSection(props: ProviderSectionProps) {
     "connectingProvider",
     "proxyRunning",
     "onConnect",
+    "onDeviceCodeConnect",
     "onDisconnect",
+    "deviceCodeProviders",
   ]);
 
   return (
@@ -144,45 +148,74 @@ export function ProviderSection(props: ProviderSectionProps) {
           <div class="flex flex-wrap gap-2">
             <For each={local.disconnected}>
               {(p) => (
-                <button
-                  class="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 transition-colors hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700"
-                  disabled={!local.proxyRunning || local.connectingProvider !== null}
-                  onClick={() => local.onConnect(p.id)}
-                >
-                  <img alt={p.name} class="h-4 w-4 rounded opacity-60" src={p.logo} />
-                  <span class="text-sm text-gray-600 dark:text-gray-400">{p.name}</span>
-                  {local.connectingProvider === p.id ? (
-                    <svg class="h-3 w-3 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
+                <div class="flex items-center gap-1">
+                  <button
+                    class="flex items-center gap-2 rounded-full border border-gray-200 bg-gray-100 px-3 py-1.5 transition-colors hover:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700"
+                    disabled={!local.proxyRunning || local.connectingProvider !== null}
+                    onClick={() => local.onConnect(p.id)}
+                    title={t("dashboard.providers.connectProvider")}
+                  >
+                    <img alt={p.name} class="h-4 w-4 rounded opacity-60" src={p.logo} />
+                    <span class="text-sm text-gray-600 dark:text-gray-400">{p.name}</span>
+                    {local.connectingProvider === p.id ? (
+                      <svg
+                        class="h-3 w-3 animate-spin text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          class="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          stroke-width="4"
+                        />
+                        <path
+                          class="opacity-75"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        class="h-3 w-3 text-gray-400"
+                        fill="none"
                         stroke="currentColor"
-                        stroke-width="4"
-                      />
-                      <path
-                        class="opacity-75"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  ) : (
-                    <svg
-                      class="h-3 w-3 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          d="M12 4v16m8-8H4"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                  <Show when={local.deviceCodeProviders?.has(p.id) && local.onDeviceCodeConnect}>
+                    <button
+                      class="rounded-full border border-gray-200 p-1.5 text-gray-400 transition-colors hover:border-blue-400 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:hover:border-blue-500"
+                      disabled={!local.proxyRunning || local.connectingProvider !== null}
+                      onClick={() => local.onDeviceCodeConnect?.(p.id)}
+                      title="Connect via device code"
                     >
-                      <path
-                        d="M12 4v16m8-8H4"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                      />
-                    </svg>
-                  )}
-                </button>
+                      <svg
+                        class="h-3.5 w-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                        />
+                      </svg>
+                    </button>
+                  </Show>
+                </div>
               )}
             </For>
           </div>

@@ -16,6 +16,16 @@ pub struct OAuthUrlResponse {
     pub state: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceCodeResponse {
+    pub verification_uri: String,
+    pub user_code: String,
+    pub state: String,
+    pub expires_in: u64,
+    pub interval: u64,
+}
+
 #[tauri::command]
 pub fn get_auth_status(state: State<AppState>) -> AuthStatus {
     state.auth_status.lock().unwrap().clone()
@@ -125,6 +135,88 @@ pub async fn get_oauth_url(
     Ok(OAuthUrlResponse {
         url: oauth_url,
         state: oauth_state,
+    })
+}
+
+#[tauri::command]
+pub async fn get_device_code(
+    state: State<'_, AppState>,
+    provider: String,
+) -> Result<DeviceCodeResponse, String> {
+    // Get the proxy port from config
+    let port = {
+        let config = state.config.lock().map_err(|e| e.to_string())?;
+        config.port
+    };
+
+    // Build endpoint WITHOUT ?is_webui=true to trigger device-code flow
+    let endpoint = match provider.as_str() {
+        "openai" => format!(
+            "http://127.0.0.1:{}/v0/management/codex-auth-url",
+            port
+        ),
+        "qwen" => format!(
+            "http://127.0.0.1:{}/v0/management/qwen-auth-url",
+            port
+        ),
+        _ => return Err(format!("Device code flow not supported for provider: {}", provider)),
+    };
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(&endpoint)
+        .header("X-Management-Key", &crate::get_management_key())
+        .send()
+        .await
+        .map_err(|e| format!("Failed to get device code: {}. Is the proxy running?", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "Device code request failed ({}): {}",
+            status, body
+        ));
+    }
+
+    let body: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse device code response: {}", e))?;
+
+    let verification_uri = body["verification_uri"]
+        .as_str()
+        .or_else(|| body["verification_url"].as_str())
+        .or_else(|| body["url"].as_str())
+        .ok_or("Missing verification_uri in response")?
+        .to_string();
+
+    let user_code = body["user_code"].as_str().unwrap_or("").to_string();
+
+    let oauth_state = body["state"]
+        .as_str()
+        .or_else(|| body["device_code"].as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let expires_in = body["expires_in"].as_u64().unwrap_or(900);
+    let interval = body["interval"].as_u64().unwrap_or(5);
+
+    // Store pending OAuth state for callback matching
+    {
+        let mut pending = state.pending_oauth.lock().map_err(|e| e.to_string())?;
+        *pending = Some(OAuthState {
+            provider: provider.clone(),
+            state: oauth_state.clone(),
+        });
+    }
+
+    Ok(DeviceCodeResponse {
+        verification_uri,
+        user_code,
+        state: oauth_state,
+        expires_in,
+        interval,
     })
 }
 

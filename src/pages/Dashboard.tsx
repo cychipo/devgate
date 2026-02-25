@@ -12,6 +12,7 @@ import {
   KiroQuotaWidget,
   QuotaWidget,
 } from "../components/dashboard/quotas";
+import { DeviceCodeModal } from "../components/DeviceCodeModal";
 import { OAuthModal } from "../components/OAuthModal";
 import { OpenCodeKitBanner } from "../components/OpenCodeKitBanner";
 import { StatusIndicator } from "../components/StatusIndicator";
@@ -22,8 +23,10 @@ import {
   type AvailableModel,
   appendToShellProfile,
   type CopilotConfig,
+  type DeviceCodeResponse,
   detectCliAgents,
   disconnectProvider,
+  getDeviceCode,
   getOAuthUrl,
   getUsageStats,
   importVertexCredential,
@@ -162,6 +165,13 @@ export function DashboardPage() {
   const [oauthModalProvider, setOauthModalProvider] = createSignal<Provider | null>(null);
   const [oauthUrlData, setOauthUrlData] = createSignal<OAuthUrlResponse | null>(null);
   const [oauthLoading, setOauthLoading] = createSignal(false);
+
+  // Device Code Modal state
+  const [deviceCodeProvider, setDeviceCodeProvider] = createSignal<Provider | null>(null);
+  const [deviceCodeData, setDeviceCodeData] = createSignal<DeviceCodeResponse | null>(null);
+
+  // Providers that support device-code login
+  const deviceCodeProviders = new Set<Provider>(["openai", "qwen"]);
 
   const getProviderName = (provider: Provider): string => {
     const found = providers.find((p) => p.provider === provider);
@@ -342,6 +352,28 @@ export function DashboardPage() {
       console.error("Failed to get OAuth URL:", error);
       setConnecting(null);
       toastStore.error(t("dashboard.toasts.connectionFailed"), String(error));
+    }
+  };
+
+  const handleDeviceCodeConnect = async (provider: Provider) => {
+    if (!proxyStatus().running) {
+      toastStore.warning(
+        t("dashboard.toasts.startProxyFirst"),
+        t("dashboard.toasts.proxyMustRunToConnectAccounts"),
+      );
+      return;
+    }
+
+    setConnecting(provider);
+    try {
+      const dcData = await getDeviceCode(provider);
+      setDeviceCodeData(dcData);
+      setDeviceCodeProvider(provider);
+      setConnecting(null);
+    } catch (error) {
+      console.error("Failed to get device code:", error);
+      setConnecting(null);
+      toastStore.error("Device code login failed", String(error));
     }
   };
 
@@ -690,12 +722,14 @@ export function DashboardPage() {
               name: p.name,
             }))}
             connectingProvider={connecting()}
+            deviceCodeProviders={deviceCodeProviders}
             disconnected={disconnectedProviders().map((p) => ({
               id: p.provider,
               logo: p.logo,
               name: p.name,
             }))}
             onConnect={handleConnect}
+            onDeviceCodeConnect={handleDeviceCodeConnect}
             onDisconnect={handleDisconnect}
             proxyRunning={proxyStatus().running}
             recentlyConnected={recentlyConnected()}
@@ -867,6 +901,23 @@ export function DashboardPage() {
         onStartOAuth={handleStartOAuth}
         provider={oauthModalProvider()}
         providerName={oauthModalProvider() ? getProviderName(oauthModalProvider()!) : ""}
+      />
+
+      {/* Device Code Modal */}
+      <DeviceCodeModal
+        deviceCode={deviceCodeData()}
+        onCancel={() => {
+          setDeviceCodeProvider(null);
+          setDeviceCodeData(null);
+        }}
+        onSuccess={async () => {
+          setDeviceCodeProvider(null);
+          setDeviceCodeData(null);
+          const newAuth = await refreshAuthStatus();
+          setAuthStatus(newAuth);
+        }}
+        provider={deviceCodeProvider()}
+        providerName={deviceCodeProvider() ? getProviderName(deviceCodeProvider()!) : ""}
       />
     </div>
   );
