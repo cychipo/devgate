@@ -64,10 +64,10 @@ export const AMP_MODEL_SLOTS: AmpModelSlot[] = [
     id: "opus-4-6",
     name: "Smart",
   },
-  // GPT-5.2 Codex - used by Deep agent
+  // GPT-5.3 Codex - used by Deep agent
   {
-    fromLabel: "GPT-5.2 Codex",
-    fromModel: "gpt-5.2-codex",
+    fromLabel: "GPT-5.3 Codex",
+    fromModel: "gpt-5.3-codex",
     id: "deep",
     name: "Deep",
   },

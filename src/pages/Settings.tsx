@@ -243,6 +243,8 @@ export function SettingsPage() {
         { label: "gpt-5.1-codex-max", value: "gpt-5.1-codex-max" },
         { label: "gpt-5.1-codex-mini", value: "gpt-5.1-codex-mini" },
         { label: "gpt-5.2-codex", value: "gpt-5.2-codex" },
+        { label: "gpt-5.3-codex", value: "gpt-5.3-codex" },
+        { label: "gpt-5.3-codex-spark", value: "gpt-5.3-codex-spark" },
         // o-series reasoning models
         { label: "o3", value: "o3" },
         { label: "o3-mini", value: "o3-mini" },

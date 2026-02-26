@@ -50,6 +50,7 @@ pub(crate) const GPT5_BASE_MODELS: &[&str] = &[
     "gpt-5.2",
     "gpt-5.2-codex",
     "gpt-5.3-codex",
+    "gpt-5.3-codex-spark",
 ];
 
 // GPT-5 reasoning level suffixes
