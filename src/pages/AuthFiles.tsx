@@ -139,26 +139,24 @@ export function AuthFilesPage() {
       return;
     }
 
-    // Determine a model to test with based on provider
-    // Using ProxyPal's model IDs that map to each provider's auth
-    let modelId: string | null = null;
-    if (p.includes("claude")) {
-      modelId = "claude-sonnet-4-5";
-    } else if (p.includes("gemini") || p.includes("vertex")) {
-      modelId = "gemini-2.5-flash";
-    } else if (p.includes("codex")) {
-      modelId = "gpt-5.1-codex-mini";
-    } else if (p.includes("qwen")) {
-      modelId = "qwen3-coder-plus";
-    } else if (p.includes("deepseek")) {
-      modelId = "deepseek-chat";
-    } else if (p.includes("iflow")) {
-      modelId = "glm-4.5";
-    } else if (p.includes("antigravity")) {
-      modelId = "gemini-2.5-flash";
-    } else if (p.includes("kimi")) {
-      modelId = "kimi-k2.5";
-    }
+    // Determine a model to test with based on provider.
+    // Keys match CLIProxyAPI's canonical Auth.Provider values;
+    // "gemini-cli" also handled via the "gemini" prefix lookup below.
+    const providerTestModels: Record<string, string> = {
+      antigravity: "gemini-2.5-flash",
+      claude: "claude-sonnet-4-5",
+      codex: "gpt-5.1-codex-mini",
+      deepseek: "deepseek-chat",
+      gemini: "gemini-2.5-flash",
+      iflow: "glm-4.5",
+      kimi: "kimi-k2.5",
+      qwen: "qwen3-coder-plus",
+      vertex: "gemini-2.5-flash",
+    };
+    const modelId =
+      providerTestModels[p] ??
+      Object.entries(providerTestModels).find(([key]) => p.includes(key))?.[1] ??
+      null;
 
     if (!modelId) {
       toastStore.error(
