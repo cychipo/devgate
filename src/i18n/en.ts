@@ -208,7 +208,7 @@ export const en = {
     },
   },
   app: {
-    loading: "Loading ProxyPal...",
+    loading: "Loading DevGate...",
   },
   authFiles: {
     actions: {
@@ -573,7 +573,7 @@ export const en = {
   },
   settings: {
     autoStartProxy: {
-      description: "Start the proxy server when ProxyPal launches",
+      description: "Start the proxy server when DevGate launches",
       label: "Auto-start proxy",
     },
     closeToTray: {
@@ -590,7 +590,7 @@ export const en = {
         important: "Important:",
         note: "Note:",
         noteText:
-          'The port routing is configured in the Cloudflare dashboard, not in ProxyPal. The "Local Port" field above is for reference only.',
+          'The port routing is configured in the Cloudflare dashboard, not in DevGate. The "Local Port" field above is for reference only.',
         publicHostname: "Public Hostname",
       },
     },
@@ -603,7 +603,7 @@ export const en = {
       checkSystem: "Check System",
       copilotApiLabel: "copilot-api:",
       description:
-        "ProxyPal automatically detects and uses copilot-api for GitHub Copilot integration. No manual setup required - it works automatically.",
+        "DevGate automatically detects and uses copilot-api for GitHub Copilot integration. No manual setup required - it works automatically.",
       detecting: "Detecting...",
       downloadHint:
         "copilot-api will be downloaded automatically on first use via npx. This is a one-time process and requires internet connection.",
@@ -627,7 +627,7 @@ export const en = {
       zhCN: "Chinese (Simplified)",
     },
     launchAtLogin: {
-      description: "Start ProxyPal automatically when you log in",
+      description: "Start DevGate automatically when you log in",
       label: "Launch at login",
     },
     level: {
@@ -704,7 +704,7 @@ export const en = {
         "Configure the thinking/reasoning token budget for Antigravity Claude models (claude-sonnet-4-5-thinking, claude-opus-4-5-thinking). This applies to both OpenCode and AmpCode CLI agents.",
       geminiInjection: {
         description:
-          "When enabled, ProxyPal injects thinking config for Gemini 3 models. Disable if you want to control thinking_config in your requests.",
+          "When enabled, DevGate injects thinking config for Gemini 3 models. Disable if you want to control thinking_config in your requests.",
         label: "Gemini Thinking Config Injection",
       },
       title: "Thinking Budget (Antigravity Claude Models)",
@@ -809,7 +809,7 @@ export const en = {
           title: "Select API Provider",
         },
         setApiKey: {
-          content: "Enter any string (e.g., 'proxypal')",
+          content: "Enter any string (e.g., 'devgate')",
           title: "Set API Key",
         },
         setBaseUrl: { title: "Set Base URL" },
@@ -832,12 +832,12 @@ export const en = {
           title: "Open Settings",
         },
         selectModel: {
-          content: "Choose any model - ProxyPal will route to your connected providers",
+          content: "Choose any model - DevGate will route to your connected providers",
           title: "Select Model",
         },
         setApiBaseUrl: { title: "Set API Base URL" },
         setApiKey: {
-          content: "Enter any string (e.g., 'proxypal') - the proxy handles authentication",
+          content: "Enter any string (e.g., 'devgate') - the proxy handles authentication",
           title: "Set API Key",
         },
       },
@@ -852,7 +852,7 @@ export const en = {
       configureYourTools: "Configure Your Tools",
       detectingInstalledTools: "Detecting installed tools...",
       foundTools: "Found {{count}} tool(s).",
-      setUpAiCodingTools: "Set up your AI coding tools to use ProxyPal.",
+      setUpAiCodingTools: "Set up your AI coding tools to use DevGate.",
       setupTools: "Setup Tools",
     },
     chooseToolFromList: "Choose an AI coding tool from the list to see setup instructions",
@@ -865,10 +865,10 @@ export const en = {
     manualSetup: "Manual setup",
     notDetected: "Not detected",
     otherTools: "Other Tools",
-    proxypalEndpoint: "ProxyPal Endpoint",
+    devgateEndpoint: "DevGate Endpoint",
     selectTool: "Select a Tool",
     setupSteps: "Setup Steps",
-    subtitle: "Configure your AI coding tools to use ProxyPal",
+    subtitle: "Configure your AI coding tools to use DevGate",
     title: "Setup Your Tools",
     toasts: {
       continueConfiguredConfigSaved: "Continue configured! Config saved to {{path}}",

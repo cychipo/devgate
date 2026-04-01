@@ -23,16 +23,16 @@ export function Button(props: ButtonProps) {
   const size = local.size ?? "md";
 
   const baseClasses =
-    "inline-flex items-center justify-center font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
   const variantClasses = {
     danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
     ghost:
-      "text-gray-700 hover:bg-gray-100 focus:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800",
+      "text-gray-700 hover:bg-orange-50 hover:text-brand-600 focus:ring-brand-500 dark:text-gray-300 dark:hover:bg-[#2b211a] dark:hover:text-brand-300",
     primary:
-      "bg-brand-600 text-white hover:bg-brand-700 focus:ring-brand-500 dark:bg-brand-500 dark:hover:bg-brand-600",
+      "bg-brand-500 text-white shadow-lg shadow-brand-500/20 hover:scale-[1.02] hover:bg-brand-600 focus:ring-brand-500 dark:bg-brand-500 dark:hover:bg-brand-600",
     secondary:
-      "bg-gray-100 text-gray-900 hover:bg-gray-200 focus:ring-gray-500 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700",
+      "border border-orange-100 bg-white text-gray-900 hover:bg-orange-50 focus:ring-brand-500 dark:border-[#3a2c23] dark:bg-[#2b211a] dark:text-gray-100 dark:hover:bg-[#33271f]",
   };
 
   const sizeClasses = {

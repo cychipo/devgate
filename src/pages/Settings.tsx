@@ -406,7 +406,7 @@ export function SettingsPage() {
                 <button
                   class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
                   classList={{
-                    "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400":
+                    "bg-orange-100 dark:bg-[#2b211a] text-brand-700 dark:text-brand-300":
                       activeTab() === tab.id,
                     "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800":
                       activeTab() !== tab.id,
@@ -468,7 +468,7 @@ export function SettingsPage() {
                   {t("settings.language.description")}
                 </p>
                 <select
-                  class="transition-smooth mt-2 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-900"
+                  class="transition-smooth mt-2 block w-full rounded-lg border border-orange-100 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-[#3a2c23] dark:bg-[#2b211a]"
                   onChange={(e) => handleConfigChange("locale", e.currentTarget.value)}
                   value={config().locale || "en"}
                 >
@@ -646,8 +646,8 @@ export function SettingsPage() {
                   </Show>
 
                   <Show when={result().result.instructions}>
-                    <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-                      <p class="text-sm text-blue-700 dark:text-blue-300">
+                    <div class="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/40 dark:bg-[#2b211a]">
+                      <p class="text-sm text-[#9a4a12] dark:text-orange-200">
                         {result().result.instructions}
                       </p>
                     </div>

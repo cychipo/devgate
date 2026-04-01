@@ -280,7 +280,7 @@ export function ProvidersSettings(props: ProvidersSettingsProps) {
           </Show>
           <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
             These models are available through OAuth-authenticated accounts and are automatically
-            routed by ProxyPal.
+            routed by DevGate.
           </p>
         </div>
       </div>

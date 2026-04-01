@@ -24,7 +24,7 @@ const providerColors: Record<string, string> = {
   codebuddy: "bg-teal-500/20 text-teal-400 border-teal-500/30",
   codex: "bg-green-500/20 text-green-400 border-green-500/30",
   cursor: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
-  gemini: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  gemini: "bg-orange-100 text-brand-600 border-orange-200 dark:bg-[#2b211a] dark:text-brand-300 dark:border-orange-900/40",
   gitlab: "bg-orange-600/20 text-orange-500 border-orange-600/30",
   iflow: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30",
   kiro: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
@@ -688,7 +688,7 @@ export function AuthFilesPage() {
                                 class={`transition-smooth flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium ${
                                   testingProvider() === file.name
                                     ? "cursor-not-allowed bg-gray-100 text-gray-400 dark:bg-gray-700"
-                                    : "border border-brand-200/50 bg-brand-50 text-brand-600 hover:bg-brand-100 dark:border-brand-800/50 dark:bg-brand-900/20 dark:text-brand-400 dark:hover:bg-brand-900/30"
+                                    : "border border-orange-200 bg-orange-50 text-brand-600 hover:bg-orange-100 dark:border-orange-900/40 dark:bg-[#2b211a] dark:text-brand-300 dark:hover:bg-[#33271f]"
                                 }`}
                                 disabled={testingProvider() === file.name || file.disabled}
                                 onClick={() => handleTestConnection(file)}
@@ -792,7 +792,7 @@ export function AuthFilesPage() {
                             class={`rounded-lg p-2 transition-colors ${
                               file.disabled
                                 ? "text-gray-400 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                                : "text-blue-500 hover:bg-blue-50 hover:text-blue-600 dark:text-blue-400 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
+                                : "text-brand-500 hover:bg-orange-50 hover:text-brand-600 dark:text-brand-300 dark:hover:bg-[#2b211a] dark:hover:text-orange-200"
                             }`}
                             onClick={() => handleToggle(file)}
                             title={

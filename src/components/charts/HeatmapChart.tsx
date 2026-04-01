@@ -1,5 +1,4 @@
 import { createMemo } from "solid-js";
-import { themeStore } from "../../stores/theme";
 import { EChartsWrapper } from "./EChartsWrapper";
 
 import type { EChartsOption } from "echarts";
@@ -23,7 +22,6 @@ const HOURS = Array.from({ length: 24 }, (_, i) => (i % 3 === 0 ? `${i}:00` : ""
 export function HeatmapChart(props: HeatmapChartProps) {
   const option = createMemo((): EChartsOption => {
     const maxValue = Math.max(...props.data.map((d) => d.value), 1);
-    const isDark = themeStore.resolvedTheme() === "dark";
 
     return {
       grid: {
@@ -53,9 +51,7 @@ export function HeatmapChart(props: HeatmapChartProps) {
         bottom: 0,
         calculable: true,
         inRange: {
-          color: isDark
-            ? ["#1e293b", "#3b82f6", "#2563eb"] // slate-800 → blue
-            : ["#f1f5f9", "#60a5fa", "#2563eb"], // slate-100 → blue
+          color: ["#fff7ed", "#fb923c", "#e57210"],
         },
         left: "center",
         max: maxValue,

@@ -1,8 +1,7 @@
-import { type Component, createEffect, createSignal, For, onMount, Show } from "solid-js";
+import { type Component, createSignal, For, onMount, Show } from "solid-js";
 import { useI18n } from "../i18n";
-import { checkForUpdates, downloadAndInstallUpdate, saveConfig } from "../lib/tauri";
+import { checkForUpdates, downloadAndInstallUpdate } from "../lib/tauri";
 import { appStore } from "../stores/app";
-import { themeStore } from "../stores/theme";
 import { toastStore } from "../stores/toast";
 
 type PageId = "dashboard" | "analytics" | "logs" | "api-keys" | "auth-files" | "settings";
@@ -54,24 +53,6 @@ const AuthFilesIcon: Component<{ class?: string }> = (props) => (
   </svg>
 );
 
-const PinIcon: Component<{ class?: string; pinned?: boolean }> = (props) => (
-  <svg class={props.class} fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-    {props.pinned ? (
-      <path
-        d="M12 5V19H19V5H12ZM4 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3Z"
-        fill="currentColor"
-        stroke="none"
-      />
-    ) : (
-      <path
-        d="M12 5V19H19V5H12ZM4 3H20C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3Z"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    )}
-  </svg>
-);
-
 const navItems: NavItem[] = [
   { icon: DashboardIcon, id: "dashboard" },
   { icon: ApiKeysIcon, id: "api-keys" },
@@ -83,21 +64,7 @@ const navItems: NavItem[] = [
 
 export const Sidebar: Component = () => {
   const { t } = useI18n();
-  const { currentPage, proxyStatus, setCurrentPage, setSidebarExpanded, sidebarExpanded } =
-    appStore;
-  const [isPinned, setIsPinned] = createSignal(appStore.config().sidebarPinned || false);
-
-  // Persist pinned state
-  createEffect(() => {
-    const pinned = isPinned();
-    if (appStore.config().sidebarPinned !== pinned) {
-      appStore.setConfig({
-        ...appStore.config(),
-        sidebarPinned: pinned,
-      });
-      saveConfig(appStore.config());
-    }
-  });
+  const { currentPage, proxyStatus, setCurrentPage } = appStore;
 
   const [updateAvailable, setUpdateAvailable] = createSignal(false);
   const [updateVersion, setUpdateVersion] = createSignal("");
@@ -130,29 +97,11 @@ export const Sidebar: Component = () => {
     }
   };
 
-  const isExpanded = () => isPinned() || sidebarExpanded();
+  const isExpanded = () => true;
 
   const isActive = (id: PageId) => {
     const page = currentPage();
     return page === id;
-  };
-
-  const handleMouseEnter = () => {
-    if (!isPinned()) {
-      setSidebarExpanded(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (!isPinned()) {
-      setSidebarExpanded(false);
-    }
-  };
-
-  const togglePin = () => {
-    const newState = !isPinned();
-    setIsPinned(newState);
-    setSidebarExpanded(newState);
   };
 
   const getNavLabel = (id: PageId) => {
@@ -176,37 +125,25 @@ export const Sidebar: Component = () => {
 
   return (
     <div
-      class="fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-gray-200 bg-white transition-all duration-200 dark:border-gray-800 dark:bg-gray-900"
-      classList={{
-        "w-16": !isExpanded(),
-        "w-48": isExpanded(),
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      class="fixed left-0 top-0 z-40 flex h-screen w-48 flex-col border-r border-orange-100 bg-background-light transition-all duration-200"
     >
       {/* Logo */}
-      <div class="flex h-16 items-center justify-center border-b border-gray-200 px-3 dark:border-gray-800">
-        <img
-          alt="ProxyPal"
-          class="h-8 w-8 flex-shrink-0 rounded-lg object-contain"
-          src={
-            themeStore.resolvedTheme() === "dark" ? "/proxypal-white.png" : "/proxypal-black.png"
-          }
-        />
+      <div class="flex h-16 items-center justify-center border-b border-orange-100 px-3">
+        <img alt="DevGate" class="h-8 w-8 flex-shrink-0 rounded-lg object-contain" src="/proxypal-black.png" />
         <Show when={isExpanded()}>
-          <span class="ml-3 overflow-hidden whitespace-nowrap font-semibold text-gray-900 dark:text-white">
-            ProxyPal
+          <span class="ml-3 overflow-hidden whitespace-nowrap font-semibold text-gray-900">
+            DevGate
           </span>
         </Show>
       </div>
 
       {/* Proxy Status */}
-      <div class="border-b border-gray-200 px-3 py-3.5 dark:border-gray-800">
+      <div class="border-b border-gray-200 px-3 py-3.5">
         <div
           class="flex items-center gap-2 rounded-lg px-2 py-1.5"
           classList={{
-            "bg-gray-100 dark:bg-gray-800": !proxyStatus().running,
-            "bg-green-50 dark:bg-green-900/20": proxyStatus().running,
+            "bg-gray-100": !proxyStatus().running,
+            "bg-green-50": proxyStatus().running,
           }}
         >
           <div
@@ -220,36 +157,14 @@ export const Sidebar: Component = () => {
             <span
               class="overflow-hidden whitespace-nowrap text-xs font-medium"
               classList={{
-                "text-gray-500 dark:text-gray-400": !proxyStatus().running,
-                "text-green-700 dark:text-green-400": proxyStatus().running,
+                "text-gray-500": !proxyStatus().running,
+                "text-green-700": proxyStatus().running,
               }}
             >
               {proxyStatus().running ? t("sidebar.proxyRunning") : t("sidebar.proxyStopped")}
             </span>
           </Show>
         </div>
-      </div>
-
-      {/* Pin Toggle - Above Dashboard */}
-      <div class="px-2 py-2">
-        <button
-          class="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 transition-colors"
-          classList={{
-            "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400": isPinned(),
-            "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white":
-              !isPinned(),
-          }}
-          onClick={togglePin}
-          title={!isExpanded() ? t("sidebar.pinSidebar") : t("sidebar.unpinSidebar")}
-          type="button"
-        >
-          <PinIcon class="h-5 w-5 flex-shrink-0" pinned={isPinned()} />
-          <Show when={isExpanded()}>
-            <span class="overflow-hidden whitespace-nowrap text-sm font-medium">
-              {isPinned() ? t("sidebar.unpin") : t("sidebar.pin")}
-            </span>
-          </Show>
-        </button>
       </div>
 
       {/* Navigation */}
@@ -259,11 +174,8 @@ export const Sidebar: Component = () => {
             <button
               class="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 transition-colors"
               classList={{
-                "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400": isActive(
-                  item.id,
-                ),
-                "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-white":
-                  !isActive(item.id),
+                "bg-orange-50 text-brand-600": isActive(item.id),
+                "text-gray-600 hover:bg-gray-100 hover:text-gray-900": !isActive(item.id),
               }}
               onClick={() => setCurrentPage(item.id)}
               title={!isExpanded() ? getNavLabel(item.id) : undefined}
@@ -282,7 +194,7 @@ export const Sidebar: Component = () => {
 
       {/* Update Button - Show when update available */}
       <Show when={updateAvailable()}>
-        <div class="border-t border-gray-200 px-2 py-2 dark:border-gray-800">
+        <div class="border-t border-gray-200 px-2 py-2">
           <button
             class="flex w-full items-center gap-3 rounded-lg bg-green-50 px-2.5 py-2 text-green-600 transition-colors hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
             disabled={isUpdating()}
@@ -335,50 +247,6 @@ export const Sidebar: Component = () => {
         </div>
       </Show>
 
-      {/* Theme Toggle */}
-      <div class="border-t border-gray-200 px-2 py-3 dark:border-gray-800">
-        <button
-          class="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-          onClick={() =>
-            themeStore.setTheme(themeStore.resolvedTheme() === "dark" ? "light" : "dark")
-          }
-          title={!isExpanded() ? t("sidebar.toggleTheme") : undefined}
-          type="button"
-        >
-          <Show
-            fallback={
-              <svg
-                class="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-              >
-                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-              </svg>
-            }
-            when={themeStore.resolvedTheme() === "dark"}
-          >
-            <svg
-              class="h-5 w-5 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="12" cy="12" r="5" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-          </Show>
-          <Show when={isExpanded()}>
-            <span class="overflow-hidden whitespace-nowrap text-sm font-medium">
-              {themeStore.resolvedTheme() === "dark"
-                ? t("sidebar.lightMode")
-                : t("sidebar.darkMode")}
-            </span>
-          </Show>
-        </button>
-      </div>
     </div>
   );
 };

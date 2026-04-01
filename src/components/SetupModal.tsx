@@ -124,10 +124,10 @@ export function SetupModal(props: SetupModalProps) {
           models: [
             {
               apiBase: endpoint,
-              apiKey: "proxypal",
+              apiKey: "devgate",
               model: "gpt-4",
               provider: "openai",
-              title: "ProxyPal",
+              title: "DevGate",
             },
           ],
         },

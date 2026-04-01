@@ -12,7 +12,6 @@ import {
   SettingsPage,
 } from "./pages";
 import { appStore } from "./stores/app";
-import { themeStore } from "./stores/theme";
 
 function App() {
   const { currentPage, initialize, isInitialized, setCurrentPage } = appStore;
@@ -38,17 +37,13 @@ function App() {
   return (
     <>
       {!isInitialized() ? (
-        <div class="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div class="flex min-h-screen items-center justify-center bg-background-light dark:bg-background-dark">
           <div class="text-center">
             <div class="mx-auto mb-4 flex h-16 w-16 animate-pulse items-center justify-center rounded-2xl">
               <img
-                alt="ProxyPal Logo"
+                alt="DevGate Logo"
                 class="h-16 w-16 rounded-2xl object-contain"
-                src={
-                  themeStore.resolvedTheme() === "dark"
-                    ? "/proxypal-white.png"
-                    : "/proxypal-black.png"
-                }
+                src="/proxypal-black.png"
               />
             </div>
             <p class="text-gray-500 dark:text-gray-400">{t("app.loading")}</p>

@@ -336,7 +336,7 @@ export function Analytics() {
       const data = await exportUsageStats();
 
       const filePath = await save({
-        defaultPath: `proxypal-usage-${new Date().toISOString().split("T")[0]}.json`,
+        defaultPath: `devgate-usage-${new Date().toISOString().split("T")[0]}.json`,
         filters: [{ extensions: ["json"], name: "JSON" }],
       });
 
@@ -804,7 +804,7 @@ export function Analytics() {
           {/* Overview cards - 3 essential metrics */}
           <div class="grid grid-cols-3 gap-3 sm:gap-4">
             <StatCard
-              colorClass="bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-300"
+              colorClass="bg-orange-50 dark:bg-[#2b211a] border-orange-100 dark:border-orange-900/40 text-[#9a4a12] dark:text-orange-200"
               icon="bolt"
               subtitle={t("dashboard.kpi.requestsToday", {
                 count: formatNumber(stats()!.requestsToday),
@@ -813,7 +813,7 @@ export function Analytics() {
               value={formatNumber(stats()!.totalRequests)}
             />
             <StatCard
-              colorClass="bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-300"
+              colorClass="bg-orange-50 dark:bg-[#2b211a] border-orange-100 dark:border-orange-900/40 text-[#9a4a12] dark:text-orange-200"
               icon="check"
               subtitle={t("dashboard.kpi.failedCount", {
                 count: formatNumber(stats()!.failureCount),
@@ -823,7 +823,7 @@ export function Analytics() {
             />
             <div class={blurClass()}>
               <StatCard
-                colorClass="bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/50 text-blue-700 dark:text-blue-300"
+                colorClass="bg-orange-50 dark:bg-[#2b211a] border-orange-100 dark:border-orange-900/40 text-[#9a4a12] dark:text-orange-200"
                 icon="bolt"
                 subtitle={t("dashboard.kpi.tokensCount", {
                   count: formatTokens(stats()!.totalTokens),
@@ -839,7 +839,7 @@ export function Analytics() {
             <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
               <div class="mb-4 flex items-center gap-2">
                 <svg
-                  class="h-5 w-5 text-blue-500"
+                  class="h-5 w-5 text-brand-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -862,8 +862,8 @@ export function Analytics() {
               <Show keyed when={requestsChartData().data.length > 0}>
                 <div class="h-48 sm:h-64">
                   <LineChart
-                    color="rgb(59, 130, 246)"
-                    fillColor="rgba(59, 130, 246, 0.1)"
+                    color="rgb(246, 131, 30)"
+                    fillColor="rgba(246, 131, 30, 0.12)"
                     getData={() => requestsChartData().data}
                     getLabels={() => requestsChartData().labels}
                     label={t("analytics.requests")}
@@ -876,7 +876,7 @@ export function Analytics() {
                 <div class="mt-6 border-t border-gray-100 pt-6 dark:border-gray-700">
                   <div class="mb-4 flex items-center gap-2">
                     <svg
-                      class="h-5 w-5 text-blue-500"
+                      class="h-5 w-5 text-brand-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -894,8 +894,8 @@ export function Analytics() {
                   </div>
                   <div class="h-48 sm:h-64">
                     <LineChart
-                      color="rgb(59, 130, 246)"
-                      fillColor="rgba(59, 130, 246, 0.1)"
+                      color="rgb(246, 131, 30)"
+                      fillColor="rgba(246, 131, 30, 0.12)"
                       getData={() => tokensChartData().data}
                       getLabels={() => tokensChartData().labels}
                       label={t("analytics.tokens")}
@@ -935,7 +935,7 @@ export function Analytics() {
             <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
               <div class="mb-4 flex items-center gap-2">
                 <svg
-                  class="h-5 w-5 text-blue-500"
+                  class="h-5 w-5 text-brand-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1003,7 +1003,7 @@ export function Analytics() {
                           </td>
                           <td class="hidden py-3 sm:table-cell">
                             <MiniBarChart
-                              color="bg-gradient-to-r from-brand-400 to-brand-600"
+                              color="bg-gradient-to-r from-brand-500 to-brand-700"
                               max={maxModelRequests()}
                               value={model.requests}
                             />
@@ -1036,7 +1036,7 @@ export function Analytics() {
                 <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
                   <div class="mb-4 flex items-center gap-2">
                     <svg
-                      class="h-5 w-5 text-blue-500"
+                      class="h-5 w-5 text-brand-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1068,7 +1068,7 @@ export function Analytics() {
               <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
                 <div class="mb-4 flex items-center gap-2">
                   <svg
-                    class="h-5 w-5 text-blue-500"
+                    class="h-5 w-5 text-brand-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1105,7 +1105,7 @@ export function Analytics() {
               <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
                 <div class="mb-4 flex items-center gap-2">
                   <svg
-                    class="h-5 w-5 text-blue-500"
+                    class="h-5 w-5 text-brand-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -1133,7 +1133,7 @@ export function Analytics() {
             <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800 sm:p-6">
               <div class="mb-4 flex items-center gap-2">
                 <svg
-                  class="h-5 w-5 text-blue-500"
+                  class="h-5 w-5 text-brand-500"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

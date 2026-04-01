@@ -17,10 +17,10 @@ const colorMap: Record<ToastType, { bg: string; border: string; icon: string; te
     text: "text-red-800 dark:text-red-200",
   },
   info: {
-    bg: "bg-blue-50 dark:bg-blue-900/20",
-    border: "border-blue-200 dark:border-blue-800",
-    icon: "text-blue-500",
-    text: "text-blue-800 dark:text-blue-200",
+    bg: "bg-orange-50 dark:bg-orange-900/20",
+    border: "border-orange-200 dark:border-orange-800",
+    icon: "text-brand-500",
+    text: "text-orange-800 dark:text-orange-200",
   },
   success: {
     bg: "bg-green-50 dark:bg-green-900/20",

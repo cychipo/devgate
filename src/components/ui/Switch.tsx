@@ -32,7 +32,7 @@ export function Switch(props: SwitchProps) {
         )}
       </div>
       <KobalteSwitch.Input class="sr-only" />
-      <KobalteSwitch.Control class="relative h-6 w-11 cursor-pointer rounded-full bg-gray-300 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ui-checked:bg-green-500 dark:bg-gray-600 dark:ui-checked:bg-green-500">
+      <KobalteSwitch.Control class="relative h-6 w-11 cursor-pointer rounded-full bg-orange-100 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ui-checked:bg-brand-500 dark:bg-[#3a2c23] dark:ui-checked:bg-brand-500">
         <KobalteSwitch.Thumb class="mt-0.5 block h-5 w-5 translate-x-0.5 transform rounded-full bg-white shadow-md transition-transform ui-checked:translate-x-[22px]" />
       </KobalteSwitch.Control>
     </KobalteSwitch>
