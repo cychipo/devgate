@@ -358,11 +358,10 @@ export function AuthFilesPage() {
   };
 
   return (
-    <div class="flex min-h-screen flex-col bg-white dark:bg-gray-900">
-      {/* Header */}
-      <header class="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-6 sm:py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 sm:gap-3">
+    <div class="flex min-h-screen flex-col bg-transparent">
+      <header class="border-b border-orange-100 px-6 py-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div class="flex items-start gap-3">
             <Button onClick={() => setCurrentPage("settings")} size="sm" variant="ghost">
               <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -373,9 +372,11 @@ export function AuthFilesPage() {
                 />
               </svg>
             </Button>
-            <h1 class="text-lg font-bold text-gray-900 dark:text-gray-100">
-              {t("authFiles.title")}
-            </h1>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">Credential workspace</p>
+              <h1 class="mt-2 text-2xl font-semibold text-gray-900">{t("authFiles.title")}</h1>
+              <p class="mt-1 text-sm leading-6 text-gray-500">Manage uploaded credentials, provider health, and file-level status from a dedicated identity operations view.</p>
+            </div>
             <Show when={loading()}>
               <span class="ml-2 flex items-center gap-1 text-xs text-gray-400">
                 <svg class="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">

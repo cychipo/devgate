@@ -50,36 +50,35 @@ function App() {
           </div>
         </div>
       ) : (
-        <>
+        <div class="min-h-screen bg-[#fffaf4]">
           <Sidebar />
-          <div
-            classList={{
-              "pl-16": !appStore.sidebarExpanded(),
-              "pl-48": appStore.sidebarExpanded(),
-            }}
-          >
-            <Switch fallback={<DashboardPage />}>
-              <Match when={currentPage() === "dashboard"}>
-                <DashboardPage />
-              </Match>
-              <Match when={currentPage() === "settings"}>
-                <SettingsPage />
-              </Match>
-              <Match when={currentPage() === "api-keys"}>
-                <ApiKeysPage />
-              </Match>
-              <Match when={currentPage() === "auth-files"}>
-                <AuthFilesPage />
-              </Match>
-              <Match when={currentPage() === "logs"}>
-                <LogViewerPage />
-              </Match>
-              <Match when={currentPage() === "analytics"}>
-                <AnalyticsPage />
-              </Match>
-            </Switch>
+          <div class="pl-64">
+            <div class="min-h-screen px-5 py-5">
+              <div class="mx-auto max-w-[1600px] rounded-[28px] border border-orange-100 bg-white shadow-[0_20px_60px_rgba(246,131,30,0.08)]">
+                <Switch fallback={<DashboardPage />}>
+                  <Match when={currentPage() === "dashboard"}>
+                    <DashboardPage />
+                  </Match>
+                  <Match when={currentPage() === "settings"}>
+                    <SettingsPage />
+                  </Match>
+                  <Match when={currentPage() === "api-keys"}>
+                    <ApiKeysPage />
+                  </Match>
+                  <Match when={currentPage() === "auth-files"}>
+                    <AuthFilesPage />
+                  </Match>
+                  <Match when={currentPage() === "logs"}>
+                    <LogViewerPage />
+                  </Match>
+                  <Match when={currentPage() === "analytics"}>
+                    <AnalyticsPage />
+                  </Match>
+                </Switch>
+              </div>
+            </div>
           </div>
-        </>
+        </div>
       )}
       <ToastContainer />
       <CommandPalette />

@@ -736,9 +736,23 @@ export function Analytics() {
           </div>
         </div>
 
+        <div class="rounded-[24px] border border-orange-100 bg-orange-50 p-4">
+          <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">Insight workspace</p>
+              <h2 class="mt-2 text-xl font-semibold text-gray-900">Analytics overview</h2>
+              <p class="mt-1 text-sm leading-6 text-gray-500">Review requests, cost patterns, token flow, and provider behavior from a dedicated data workspace.</p>
+            </div>
+            <div class="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-sm text-gray-500 shadow-sm">
+              <span class="block text-xs font-semibold uppercase tracking-[0.16em] text-gray-400">Last sync</span>
+              <span class="mt-1 block font-medium text-gray-900">{t("analytics.updated")}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Empty state - no requests yet */}
         <Show when={!loading() && (!stats() || stats()!.totalRequests === 0)}>
-          <div class="rounded-xl border border-gray-200 bg-white py-16 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
+          <div class="rounded-[28px] border border-gray-200 bg-white py-16 text-center shadow-sm dark:border-gray-700 dark:bg-gray-800">
             <svg
               class="mx-auto mb-4 h-16 w-16 text-gray-300 dark:text-gray-600"
               fill="none"

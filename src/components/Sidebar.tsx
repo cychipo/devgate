@@ -97,8 +97,6 @@ export const Sidebar: Component = () => {
     }
   };
 
-  const isExpanded = () => true;
-
   const isActive = (id: PageId) => {
     const page = currentPage();
     return page === id;
@@ -124,38 +122,32 @@ export const Sidebar: Component = () => {
   };
 
   return (
-    <div
-      class="fixed left-0 top-0 z-40 flex h-screen w-48 flex-col border-r border-orange-100 bg-background-light transition-all duration-200"
-    >
-      {/* Logo */}
-      <div class="flex h-16 items-center justify-center border-b border-orange-100 px-3">
-        <img alt="DevGate" class="h-8 w-8 flex-shrink-0 rounded-lg object-contain" src="/proxypal-black.png" />
-        <Show when={isExpanded()}>
-          <span class="ml-3 overflow-hidden whitespace-nowrap font-semibold text-gray-900">
-            DevGate
-          </span>
-        </Show>
-      </div>
-
-      {/* Proxy Status */}
-      <div class="border-b border-gray-200 px-3 py-3.5">
-        <div
-          class="flex items-center gap-2 rounded-lg px-2 py-1.5"
-          classList={{
-            "bg-gray-100": !proxyStatus().running,
-            "bg-green-50": proxyStatus().running,
-          }}
-        >
+    <aside class="fixed left-0 top-0 z-40 flex h-screen w-64 flex-col bg-[#fffaf4] px-4 py-4">
+      <div class="flex h-full flex-col rounded-[28px] border border-orange-100 bg-white px-3 py-4 shadow-[0_16px_40px_rgba(246,131,30,0.08)]">
+        <div class="rounded-2xl border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-3">
+          <div class="flex items-center gap-3">
+            <img alt="DevGate" class="h-10 w-10 rounded-xl object-contain shadow-sm" src="/proxypal-black.png" />
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.2em] text-orange-500">Workspace</p>
+              <p class="text-base font-semibold text-gray-900">DevGate</p>
+            </div>
+          </div>
           <div
-            class="h-2 w-2 flex-shrink-0 rounded-full"
+            class="mt-3 flex items-center gap-2 rounded-xl px-3 py-2"
             classList={{
-              "bg-gray-400": !proxyStatus().running,
-              "bg-green-500 animate-pulse": proxyStatus().running,
+              "bg-gray-100": !proxyStatus().running,
+              "bg-green-50": proxyStatus().running,
             }}
-          />
-          <Show when={isExpanded()}>
+          >
+            <div
+              class="h-2 w-2 rounded-full"
+              classList={{
+                "bg-gray-400": !proxyStatus().running,
+                "bg-green-500 animate-pulse": proxyStatus().running,
+              }}
+            />
             <span
-              class="overflow-hidden whitespace-nowrap text-xs font-medium"
+              class="text-xs font-medium"
               classList={{
                 "text-gray-500": !proxyStatus().running,
                 "text-green-700": proxyStatus().running,
@@ -163,90 +155,67 @@ export const Sidebar: Component = () => {
             >
               {proxyStatus().running ? t("sidebar.proxyRunning") : t("sidebar.proxyStopped")}
             </span>
-          </Show>
+          </div>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav class="flex-1 space-y-1 px-2 py-3">
-        <For each={navItems}>
-          {(item) => (
+        <div class="mt-4 px-2">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">Navigation</p>
+        </div>
+
+        <nav class="mt-2 flex-1 space-y-1.5">
+          <For each={navItems}>
+            {(item) => (
+              <button
+                class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition-all"
+                classList={{
+                  "border border-orange-100 bg-orange-50 text-brand-600 shadow-sm": isActive(item.id),
+                  "border border-transparent text-gray-600 hover:border-orange-100 hover:bg-orange-50/60 hover:text-gray-900":
+                    !isActive(item.id),
+                }}
+                onClick={() => setCurrentPage(item.id)}
+                type="button"
+              >
+                <span
+                  class="flex h-9 w-9 items-center justify-center rounded-xl"
+                  classList={{
+                    "bg-white text-brand-600": isActive(item.id),
+                    "bg-gray-100 text-gray-500": !isActive(item.id),
+                  }}
+                >
+                  <item.icon class="h-4 w-4 flex-shrink-0" />
+                </span>
+                <div class="min-w-0">
+                  <span class="block whitespace-nowrap text-sm font-medium">{getNavLabel(item.id)}</span>
+                </div>
+              </button>
+            )}
+          </For>
+        </nav>
+
+        <Show when={updateAvailable()}>
+          <div class="mt-4 rounded-2xl border border-green-100 bg-green-50 p-3 text-green-700">
+            <div class="flex items-center gap-2">
+              <svg class="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" />
+              </svg>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-green-600">Update</p>
+                <p class="truncate text-sm font-medium">
+                  {isUpdating() ? t("sidebar.updating") : t("sidebar.updateTo", { version: updateVersion() })}
+                </p>
+              </div>
+            </div>
             <button
-              class="flex w-full items-center gap-3 rounded-lg px-2.5 py-2 transition-colors"
-              classList={{
-                "bg-orange-50 text-brand-600": isActive(item.id),
-                "text-gray-600 hover:bg-gray-100 hover:text-gray-900": !isActive(item.id),
-              }}
-              onClick={() => setCurrentPage(item.id)}
-              title={!isExpanded() ? getNavLabel(item.id) : undefined}
+              class="mt-3 w-full rounded-xl bg-white px-3 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50"
+              disabled={isUpdating()}
+              onClick={handleUpdate}
               type="button"
             >
-              <item.icon class="h-5 w-5 flex-shrink-0" />
-              <Show when={isExpanded()}>
-                <span class="overflow-hidden whitespace-nowrap text-sm font-medium">
-                  {getNavLabel(item.id)}
-                </span>
-              </Show>
+              {isUpdating() ? t("sidebar.updating") : "Install update"}
             </button>
-          )}
-        </For>
-      </nav>
-
-      {/* Update Button - Show when update available */}
-      <Show when={updateAvailable()}>
-        <div class="border-t border-gray-200 px-2 py-2">
-          <button
-            class="flex w-full items-center gap-3 rounded-lg bg-green-50 px-2.5 py-2 text-green-600 transition-colors hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-            disabled={isUpdating()}
-            onClick={handleUpdate}
-            title={!isExpanded() ? t("sidebar.updateTo", { version: updateVersion() }) : undefined}
-            type="button"
-          >
-            <Show
-              fallback={
-                <svg class="h-5 w-5 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  />
-                  <path
-                    class="opacity-75"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    fill="currentColor"
-                  />
-                </svg>
-              }
-              when={!isUpdating()}
-            >
-              <svg
-                class="h-5 w-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                />
-              </svg>
-            </Show>
-            <Show when={isExpanded()}>
-              <span class="overflow-hidden whitespace-nowrap text-sm font-medium">
-                {isUpdating()
-                  ? t("sidebar.updating")
-                  : t("sidebar.updateTo", { version: updateVersion() })}
-              </span>
-            </Show>
-          </button>
-        </div>
-      </Show>
-
-    </div>
+          </div>
+        </Show>
+      </div>
+    </aside>
   );
 };
