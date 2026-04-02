@@ -375,204 +375,183 @@ export function SettingsPage() {
               </span>
             )}
           </div>
-          {/* Tab Navigation */}
-          <div class="flex gap-1">
-            <For
-              each={[
-                {
-                  id: "general" as SettingsTab,
-                  label: t("settings.tabs.general"),
-                },
-                {
-                  id: "providers" as SettingsTab,
-                  label: t("settings.tabs.providers"),
-                },
-                {
-                  id: "models" as SettingsTab,
-                  label: t("settings.tabs.models"),
-                },
-                { id: "ssh" as SettingsTab, label: t("settings.tabs.ssh") },
-                {
-                  id: "cloudflare" as SettingsTab,
-                  label: t("settings.tabs.cloudflare"),
-                },
-                {
-                  id: "advanced" as SettingsTab,
-                  label: t("settings.tabs.advanced"),
-                },
-              ]}
-            >
-              {(tab) => (
-                <button
-                  class="rounded-lg px-3 py-1.5 text-sm font-medium transition-colors"
-                  classList={{
-                    "bg-orange-100 dark:bg-[#2b211a] text-brand-700 dark:text-brand-300":
-                      activeTab() === tab.id,
-                    "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800":
-                      activeTab() !== tab.id,
-                  }}
-                  onClick={() => setActiveTab(tab.id)}
-                  type="button"
-                >
-                  {tab.label}
-                </button>
-              )}
-            </For>
+          <div class="rounded-[24px] border border-orange-100 bg-orange-50 p-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">Configuration map</p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <For
+                each={[
+                  { id: "general" as SettingsTab, label: t("settings.tabs.general") },
+                  { id: "providers" as SettingsTab, label: t("settings.tabs.providers") },
+                  { id: "models" as SettingsTab, label: t("settings.tabs.models") },
+                  { id: "ssh" as SettingsTab, label: t("settings.tabs.ssh") },
+                  { id: "cloudflare" as SettingsTab, label: t("settings.tabs.cloudflare") },
+                  { id: "advanced" as SettingsTab, label: t("settings.tabs.advanced") },
+                ]}
+              >
+                {(tab) => (
+                  <button
+                    class="rounded-2xl px-4 py-2 text-sm font-medium transition-colors"
+                    classList={{
+                      "bg-white text-gray-900 shadow-sm": activeTab() === tab.id,
+                      "text-gray-600 hover:bg-white hover:text-brand-600": activeTab() !== tab.id,
+                    }}
+                    onClick={() => setActiveTab(tab.id)}
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                )}
+              </For>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main content */}
-      <main class="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div class="animate-stagger mx-auto max-w-xl space-y-4 sm:space-y-6">
-          {/* General settings */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
-              {t("settings.general")}
-            </h2>
-
-            <div class="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-              <Switch
-                checked={config().launchAtLogin}
-                description={t("settings.launchAtLogin.description")}
-                label={t("settings.launchAtLogin.label")}
-                onChange={(checked) => handleConfigChange("launchAtLogin", checked)}
-              />
-
-              <div class="border-t border-gray-200 dark:border-gray-700" />
-
-              <Switch
-                checked={config().autoStart}
-                description={t("settings.autoStartProxy.description")}
-                label={t("settings.autoStartProxy.label")}
-                onChange={(checked) => handleConfigChange("autoStart", checked)}
-              />
-
-              <div class="border-t border-gray-200 dark:border-gray-700" />
-
-              <Switch
-                checked={closeToTray()}
-                description={t("settings.closeToTray.description")}
-                disabled={savingCloseToTray()}
-                label={t("settings.closeToTray.label")}
-                onChange={handleCloseToTrayChange}
-              />
-
-              <div class="border-t border-gray-200 dark:border-gray-700" />
-
-              <label class="block">
-                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {t("settings.language.label")}
-                </span>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {t("settings.language.description")}
-                </p>
-                <select
-                  class="transition-smooth mt-2 block w-full rounded-lg border border-orange-100 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-[#3a2c23] dark:bg-[#2b211a]"
-                  onChange={(e) => handleConfigChange("locale", e.currentTarget.value)}
-                  value={config().locale || "en"}
-                >
-                  <For each={LOCALE_OPTIONS}>
-                    {(locale) => <option value={locale}>{LOCALE_LABELS[locale]}</option>}
-                  </For>
-                </select>
-              </label>
+      <main class="flex-1 overflow-y-auto p-6">
+        <div class="mx-auto grid w-full max-w-6xl gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
+          <div class="space-y-4">
+            <div class="rounded-[24px] border border-orange-100 bg-white p-4 shadow-sm">
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Workspace overview</p>
+              <h2 class="mt-2 text-lg font-semibold text-gray-900">Settings architecture</h2>
+              <p class="mt-1 text-sm leading-6 text-gray-500">Group operational controls, provider configuration, and advanced tuning into clearer decision zones.</p>
             </div>
           </div>
 
-          {/* Proxy settings */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <ProxySettings
-              config={config}
-              handleConfigChange={handleConfigChange}
-              proxyRunning={appStore.proxyStatus().running}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+          <div class="animate-stagger space-y-4 sm:space-y-6">
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-400">
+                {t("settings.general")}
+              </h2>
 
-          {/* Thinking Budget Settings */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <ThinkingReasoningSettings
-              config={config}
-              gptBaseModels={gptBaseModels}
-              gptBaseModelSet={gptBaseModelSet}
-              handleConfigChange={handleConfigChange}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+              <div class="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                <Switch
+                  checked={config().launchAtLogin}
+                  description={t("settings.launchAtLogin.description")}
+                  label={t("settings.launchAtLogin.label")}
+                  onChange={(checked) => handleConfigChange("launchAtLogin", checked)}
+                />
 
-          {/* Claude Code Settings */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <ClaudeCodeSettings
-              config={config}
-              getAvailableTargetModels={getAvailableTargetModels}
-              handleConfigChange={handleConfigChange}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+                <div class="border-t border-gray-200 dark:border-gray-700" />
 
-          {/* Amp CLI Integration */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <AmpSettings
-              config={config}
-              getAvailableTargetModels={getAvailableTargetModels}
-              gptBaseModels={gptBaseModels}
-              gptBaseModelSet={gptBaseModelSet}
-              handleConfigChange={handleConfigChange}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+                <Switch
+                  checked={config().autoStart}
+                  description={t("settings.autoStartProxy.description")}
+                  label={t("settings.autoStartProxy.label")}
+                  onChange={(checked) => handleConfigChange("autoStart", checked)}
+                />
 
-          {/* Custom OpenAI-Compatible Providers */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
-            <OpenAIProviderSettings
-              config={config}
-              handleConfigChange={handleConfigChange}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+                <div class="border-t border-gray-200 dark:border-gray-700" />
 
-          {/* Advanced Settings */}
-          <div classList={{ hidden: activeTab() !== "advanced" }}>
-            <AdvancedSettings
-              appVersion={appVersion}
-              config={config}
-              handleConfigChange={handleConfigChange}
-              proxyRunning={appStore.proxyStatus().running}
-              saving={saving}
-              setConfig={setConfig}
-              setSaving={setSaving}
-            />
-          </div>
+                <Switch
+                  checked={closeToTray()}
+                  description={t("settings.closeToTray.description")}
+                  disabled={savingCloseToTray()}
+                  label={t("settings.closeToTray.label")}
+                  onChange={handleCloseToTrayChange}
+                />
 
-          {/* Copilot Detection */}
-          <div classList={{ hidden: activeTab() !== "providers" }}>
-            <ProvidersSettings config={config()} setConfig={setConfig} />
-          </div>
+                <div class="border-t border-gray-200 dark:border-gray-700" />
 
-          {/* SSH Settings */}
-          <div class="space-y-4" classList={{ hidden: activeTab() !== "ssh" }}>
-            <SshSettings config={config()} setConfig={setConfig} />
-          </div>
+                <label class="block">
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{t("settings.language.label")}</span>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("settings.language.description")}</p>
+                  <select
+                    class="transition-smooth mt-2 block w-full rounded-lg border border-orange-100 bg-white px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-[#3a2c23] dark:bg-[#2b211a]"
+                    onChange={(e) => handleConfigChange("locale", e.currentTarget.value)}
+                    value={config().locale || "en"}
+                  >
+                    <For each={LOCALE_OPTIONS}>{(locale) => <option value={locale}>{LOCALE_LABELS[locale]}</option>}</For>
+                  </select>
+                </label>
+              </div>
+            </div>
 
-          <div classList={{ hidden: activeTab() !== "cloudflare" }}>
-            <CloudflareSettings config={config()} setConfig={setConfig} />
-          </div>
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <ProxySettings
+                config={config}
+                handleConfigChange={handleConfigChange}
+                proxyRunning={appStore.proxyStatus().running}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
 
-          <div class="my-6 border-t border-gray-200 dark:border-gray-700" />
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <ThinkingReasoningSettings
+                config={config}
+                gptBaseModels={gptBaseModels}
+                gptBaseModelSet={gptBaseModelSet}
+                handleConfigChange={handleConfigChange}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
 
-          <div classList={{ hidden: activeTab() !== "models" }}>
-            <ModelsSettings config={config()} setConfig={setConfig} />
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <ClaudeCodeSettings
+                config={config}
+                getAvailableTargetModels={getAvailableTargetModels}
+                handleConfigChange={handleConfigChange}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
+
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <AmpSettings
+                config={config}
+                getAvailableTargetModels={getAvailableTargetModels}
+                gptBaseModels={gptBaseModels}
+                gptBaseModelSet={gptBaseModelSet}
+                handleConfigChange={handleConfigChange}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
+
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "general" }}>
+              <OpenAIProviderSettings
+                config={config}
+                handleConfigChange={handleConfigChange}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
+
+            <div classList={{ hidden: activeTab() !== "advanced" }}>
+              <AdvancedSettings
+                appVersion={appVersion}
+                config={config}
+                handleConfigChange={handleConfigChange}
+                proxyRunning={appStore.proxyStatus().running}
+                saving={saving}
+                setConfig={setConfig}
+                setSaving={setSaving}
+              />
+            </div>
+
+            <div classList={{ hidden: activeTab() !== "providers" }}>
+              <ProvidersSettings config={config()} setConfig={setConfig} />
+            </div>
+
+            <div class="space-y-4" classList={{ hidden: activeTab() !== "ssh" }}>
+              <SshSettings config={config()} setConfig={setConfig} />
+            </div>
+
+            <div classList={{ hidden: activeTab() !== "cloudflare" }}>
+              <CloudflareSettings config={config()} setConfig={setConfig} />
+            </div>
+
+            <div class="my-6 border-t border-gray-200 dark:border-gray-700" />
+
+            <div classList={{ hidden: activeTab() !== "models" }}>
+              <ModelsSettings config={config()} setConfig={setConfig} />
+            </div>
           </div>
         </div>
       </main>

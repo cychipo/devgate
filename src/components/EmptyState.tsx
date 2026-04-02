@@ -19,44 +19,38 @@ interface EmptyStateProps {
 
 export function EmptyState(props: EmptyStateProps) {
   return (
-    <div class="animate-fade-in flex flex-col items-center justify-center px-6 py-12 text-center">
-      {/* Icon container with gradient background */}
-      <div class="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 shadow-sm dark:from-gray-800 dark:to-gray-700">
-        <div class="text-gray-400 dark:text-gray-500">{props.icon}</div>
+    <div class="animate-fade-in rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-white px-8 py-12 text-left shadow-[0_16px_40px_rgba(246,131,30,0.08)]">
+      <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+        <div class="max-w-xl">
+          <div class="mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-white text-gray-400 shadow-sm">
+            {props.icon}
+          </div>
+          <h3 class="mb-2 text-xl font-semibold text-gray-900">{props.title}</h3>
+          <p class="max-w-lg text-sm leading-7 text-gray-500">{props.description}</p>
+          <Show when={props.hint}>
+            <p class="mt-4 max-w-lg text-xs uppercase tracking-[0.18em] text-gray-400">{props.hint}</p>
+          </Show>
+        </div>
+
+        <div class="flex flex-col gap-3 sm:min-w-[220px]">
+          {props.action && (
+            <button
+              class="hover-lift rounded-2xl bg-brand-500 px-5 py-3 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-600 hover:shadow-md"
+              onClick={props.action.onClick}
+            >
+              {props.action.label}
+            </button>
+          )}
+          {props.secondaryAction && (
+            <button
+              class="rounded-2xl border border-orange-100 bg-white px-5 py-3 text-sm font-medium text-gray-700 transition-all hover:bg-orange-50"
+              onClick={props.secondaryAction.onClick}
+            >
+              {props.secondaryAction.label}
+            </button>
+          )}
+        </div>
       </div>
-
-      {/* Title */}
-      <h3 class="mb-2 text-lg font-semibold text-gray-900 dark:text-gray-100">{props.title}</h3>
-
-      {/* Description */}
-      <p class="mb-6 max-w-xs text-sm leading-relaxed text-gray-500 dark:text-gray-400">
-        {props.description}
-      </p>
-
-      {/* Actions */}
-      <div class="flex flex-col items-center gap-3 sm:flex-row">
-        {props.action && (
-          <button
-            class="hover-lift rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-brand-600 hover:shadow-md"
-            onClick={props.action.onClick}
-          >
-            {props.action.label}
-          </button>
-        )}
-        {props.secondaryAction && (
-          <button
-            class="rounded-lg bg-gray-100 px-5 py-2.5 text-sm font-medium text-gray-700 transition-all hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={props.secondaryAction.onClick}
-          >
-            {props.secondaryAction.label}
-          </button>
-        )}
-      </div>
-
-      {/* Hint text */}
-      <Show when={props.hint}>
-        <p class="mt-4 max-w-xs text-xs text-gray-400 dark:text-gray-500">{props.hint}</p>
-      </Show>
     </div>
   );
 }

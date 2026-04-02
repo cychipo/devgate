@@ -259,14 +259,15 @@ export function LogViewerPage() {
   };
 
   return (
-    <div class="flex min-h-screen flex-col bg-white dark:bg-gray-900">
-      {/* Header */}
-      <header class="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-2 sm:gap-3">
-            <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {t("logs.title")}
-            </h1>
+    <div class="flex min-h-screen flex-col bg-transparent">
+      <header class="border-b border-orange-100 px-6 py-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div class="flex items-start gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">Monitoring workspace</p>
+              <h1 class="mt-2 text-2xl font-semibold text-gray-900">{t("logs.title")}</h1>
+              <p class="mt-1 text-sm leading-6 text-gray-500">Inspect live activity, server messages, and request errors from a split operational console.</p>
+            </div>
 
             {/* Tab switcher */}
             <div class="ml-2 flex items-center gap-1 rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">

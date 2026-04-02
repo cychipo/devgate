@@ -3,7 +3,6 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ApiEndpoint } from "../components/ApiEndpoint";
 import { openCommandPalette } from "../components/CommandPalette";
 import { CopilotCard } from "../components/CopilotCard";
-import { OnboardingChecklist } from "../components/dashboard/OnboardingChecklist";
 import { ProviderSection } from "../components/dashboard/ProviderSection";
 import {
   ClaudeQuotaWidget,
@@ -14,8 +13,6 @@ import {
 } from "../components/dashboard/quotas";
 import { DeviceCodeModal } from "../components/DeviceCodeModal";
 import { OAuthModal } from "../components/OAuthModal";
-import { OpenCodeKitBanner } from "../components/OpenCodeKitBanner";
-import { PikaAiBanner } from "../components/PikaAiBanner";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { Button } from "../components/ui";
 import { useI18n } from "../i18n";
@@ -90,7 +87,12 @@ function KpiTile(props: {
 }) {
   const icons = {
     bolt: (
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        class="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           d="M13 10V3L4 14h7v7l9-11h-7z"
           stroke-linecap="round"
@@ -100,7 +102,12 @@ function KpiTile(props: {
       </svg>
     ),
     check: (
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        class="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
           stroke-linecap="round"
@@ -110,7 +117,12 @@ function KpiTile(props: {
       </svg>
     ),
     dollar: (
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        class="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path
           d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           stroke-linecap="round"
@@ -128,13 +140,92 @@ function KpiTile(props: {
     >
       <div class="mb-1 flex items-center gap-1.5 opacity-80">
         {icons[props.icon]}
-        <span class="text-[10px] font-medium uppercase tracking-wider">{props.label}</span>
+        <span class="text-[10px] font-medium uppercase tracking-wider">
+          {props.label}
+        </span>
       </div>
       <p class="text-xl font-bold tabular-nums">{props.value}</p>
       <Show when={props.subtext}>
         <p class="mt-0.5 text-[10px] opacity-70">{props.subtext}</p>
       </Show>
     </button>
+  );
+}
+
+function ConnectedProvidersSection(props: {
+  connected: Array<{ logo: string; name: string; provider: Provider }>;
+}) {
+  return (
+    <div class="rounded-[28px] border border-orange-100 bg-white p-6 shadow-sm">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+            Connected network
+          </p>
+          <h2 class="mt-2 text-xl font-semibold text-gray-900">
+            Providers connected to DevGate
+          </h2>
+          <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+            A quick view of the active provider network currently available
+            through your DevGate workspace.
+          </p>
+        </div>
+        <div class="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 text-right">
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+            Active
+          </p>
+          <p class="mt-1 text-2xl font-semibold text-gray-900">
+            {props.connected.length}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 grid gap-6 xl:grid-cols-[220px_minmax(0,1fr)] xl:items-center">
+        <div class="rounded-[24px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5 text-center shadow-sm">
+          <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-sm">
+            <img
+              alt="DevGate"
+              class="h-10 w-10 object-contain"
+              src="/proxypal-black.png"
+            />
+          </div>
+          <p class="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+            Hub
+          </p>
+          <p class="mt-1 text-lg font-semibold text-gray-900">DevGate</p>
+          <p class="mt-2 text-sm text-gray-500">
+            Routes requests to your connected providers.
+          </p>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <For each={props.connected}>
+            {(provider) => (
+              <div class="relative rounded-[24px] border border-orange-100 bg-[#fffaf4] p-4 shadow-sm">
+                <div class="absolute -left-3 top-1/2 hidden h-px w-6 -translate-y-1/2 bg-orange-200 xl:block" />
+                <div class="flex items-center gap-3">
+                  <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <img
+                      alt={provider.name}
+                      class="h-6 w-6 object-contain"
+                      src={provider.logo}
+                    />
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-[0.16em] text-orange-500">
+                      Provider
+                    </p>
+                    <p class="truncate text-base font-semibold text-gray-900">
+                      {provider.name}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -151,7 +242,9 @@ export function DashboardPage() {
   } = appStore;
   const [toggling, setToggling] = createSignal(false);
   const [connecting, setConnecting] = createSignal<Provider | null>(null);
-  const [recentlyConnected, setRecentlyConnected] = createSignal<Set<Provider>>(new Set());
+  const [recentlyConnected, setRecentlyConnected] = createSignal<Set<Provider>>(
+    new Set(),
+  );
   const [hasConfiguredAgent, setHasConfiguredAgent] = createSignal(false);
   const [refreshingAgents, setRefreshingAgents] = createSignal(false);
   const [configResult, setConfigResult] = createSignal<{
@@ -165,8 +258,11 @@ export function DashboardPage() {
   const [stats, setStats] = createSignal<UsageStats | null>(null);
 
   // OAuth Modal state
-  const [oauthModalProvider, setOauthModalProvider] = createSignal<Provider | null>(null);
-  const [oauthUrlData, setOauthUrlData] = createSignal<OAuthUrlResponse | null>(null);
+  const [oauthModalProvider, setOauthModalProvider] =
+    createSignal<Provider | null>(null);
+  const [oauthUrlData, setOauthUrlData] = createSignal<OAuthUrlResponse | null>(
+    null,
+  );
   const [oauthLoading, setOauthLoading] = createSignal(false);
   const [showManualCodeInput, setShowManualCodeInput] = createSignal(false);
   // Guard: prevents race between deep-link callback, polling, and manual code submission.
@@ -174,8 +270,10 @@ export function DashboardPage() {
   const [oauthCompleted, setOauthCompleted] = createSignal(false);
 
   // Device Code Modal state
-  const [deviceCodeProvider, setDeviceCodeProvider] = createSignal<Provider | null>(null);
-  const [deviceCodeData, setDeviceCodeData] = createSignal<DeviceCodeResponse | null>(null);
+  const [deviceCodeProvider, setDeviceCodeProvider] =
+    createSignal<Provider | null>(null);
+  const [deviceCodeData, setDeviceCodeData] =
+    createSignal<DeviceCodeResponse | null>(null);
 
   // Providers that support device-code login
   const deviceCodeProviders = new Set<Provider>(["openai", "qwen"]);
@@ -201,7 +299,10 @@ export function DashboardPage() {
       setHasConfiguredAgent(detected.some((a) => a.configured));
     } catch (error) {
       console.error("Failed to load agents:", error);
-      toastStore.error(t("agentSetup.toasts.failedToDetectCliAgents"), String(error));
+      toastStore.error(
+        t("agentSetup.toasts.failedToDetectCliAgents"),
+        String(error),
+      );
     } finally {
       setRefreshingAgents(false);
     }
@@ -299,7 +400,8 @@ export function DashboardPage() {
   });
 
   // Setup complete when: proxy running + provider connected + agent configured
-  const isSetupComplete = () => proxyStatus().running && hasAnyProvider() && hasConfiguredAgent();
+  const isSetupComplete = () =>
+    proxyStatus().running && hasAnyProvider() && hasConfiguredAgent();
 
   // Onboarding shows until setup complete (no dismiss option)
 
@@ -323,7 +425,10 @@ export function DashboardPage() {
       }
     } catch (error) {
       console.error("Failed to toggle proxy:", error);
-      toastStore.error(t("dashboard.toasts.failedToToggleProxy"), String(error));
+      toastStore.error(
+        t("dashboard.toasts.failedToToggleProxy"),
+        String(error),
+      );
     } finally {
       setToggling(false);
     }
@@ -587,7 +692,10 @@ export function DashboardPage() {
     } catch (error) {
       console.error("Check auth error:", error);
       setOauthLoading(false);
-      toastStore.error(t("dashboard.toasts.failedToCheckAuthorization"), String(error));
+      toastStore.error(
+        t("dashboard.toasts.failedToCheckAuthorization"),
+        String(error),
+      );
     }
   };
 
@@ -653,8 +761,10 @@ export function DashboardPage() {
     }
   };
 
-  const connectedProviders = () => providers.filter((p) => authStatus()[p.provider]);
-  const disconnectedProviders = () => providers.filter((p) => !authStatus()[p.provider]);
+  const connectedProviders = () =>
+    providers.filter((p) => authStatus()[p.provider]);
+  const disconnectedProviders = () =>
+    providers.filter((p) => !authStatus()[p.provider]);
   const hasAnyProvider = () => connectedProviders().length > 0;
 
   const handleApplyEnv = async () => {
@@ -671,7 +781,10 @@ export function DashboardPage() {
       setConfigResult(null);
       await loadAgents();
     } catch (error) {
-      toastStore.error(t("settings.toasts.failedToUpdateShellProfile"), String(error));
+      toastStore.error(
+        t("settings.toasts.failedToUpdateShellProfile"),
+        String(error),
+      );
     }
   };
 
@@ -738,20 +851,33 @@ export function DashboardPage() {
   };
 
   return (
-    <div class="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
-      {/* Header - Simplified (navigation handled by sidebar) */}
-      <header class="sticky top-0 z-10 border-b border-orange-100 bg-background-light px-4 py-3 dark:border-[#3a2c23] dark:bg-background-dark sm:px-6">
-        <div class="mx-auto flex max-w-3xl items-center justify-between">
-          <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {t("sidebar.dashboard")}
-          </h1>
-          <div class="flex items-center gap-3">
+    <div class="flex min-h-screen flex-col bg-transparent">
+      <header class="border-b border-orange-100 px-6 py-5">
+        <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+              Control center
+            </p>
+            <h1 class="mt-2 text-3xl font-semibold text-gray-900">
+              {t("sidebar.dashboard")}
+            </h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+              Track activation, accounts, quotas, and routing health from a
+              workspace designed around overview-first scanning.
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-3">
             <button
-              class="flex items-center gap-2 rounded-lg border border-orange-100 bg-white px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-orange-50 hover:text-brand-600 dark:border-[#3a2c23] dark:bg-[#2b211a] dark:text-gray-400 dark:hover:bg-[#33271f] dark:hover:text-brand-300"
+              class="flex items-center gap-2 rounded-2xl border border-orange-100 bg-white px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-orange-50 hover:text-brand-600"
               onClick={openCommandPalette}
               title={t("dashboard.commandPalette")}
             >
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                   stroke-linecap="round"
@@ -759,7 +885,8 @@ export function DashboardPage() {
                   stroke-width="2"
                 />
               </svg>
-              <kbd class="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium dark:bg-gray-700">
+              <span>{t("dashboard.commandPalette")}</span>
+              <kbd class="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium">
                 ⌘K
               </kbd>
             </button>
@@ -772,107 +899,158 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {/* Main content */}
-      <main class="flex flex-1 flex-col overflow-y-auto p-4 sm:p-6">
-        <div class="mx-auto max-w-3xl space-y-4">
-          {/* === OpenCodeKit Banner === */}
-          <OpenCodeKitBanner />
+      <main class="flex flex-1 flex-col overflow-y-auto p-6">
+        <div class="mx-auto w-full max-w-7xl space-y-6">
+          <ConnectedProvidersSection connected={connectedProviders()} />
 
-          {/* === PikaAI Banner === */}
-          <PikaAiBanner />
+          <div class="grid gap-6 2xl:grid-cols-[minmax(0,1.6fr)_380px]">
+            <div class="space-y-6">
+              <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+                <div class="space-y-6">
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <div class="rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 to-white p-5 shadow-sm">
+                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-orange-500">
+                        Activation path
+                      </p>
+                      <h2 class="mt-2 text-xl font-semibold text-gray-900">
+                        Get the workspace ready
+                      </h2>
+                      <p class="mt-2 text-sm leading-6 text-gray-500">
+                        Move from initial activation to daily usage with a
+                        guided checklist and clear next-step cues.
+                      </p>
+                    </div>
+                    <div class="rounded-[28px] border border-orange-100 bg-white p-5 shadow-sm">
+                      <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Live status
+                      </p>
+                      <div class="mt-4 flex items-center gap-3">
+                        <div
+                          class={`h-3 w-3 rounded-full ${proxyStatus().running ? "bg-green-500 animate-pulse" : "bg-gray-300"}`}
+                        />
+                        <div>
+                          <p class="text-sm font-medium text-gray-900">
+                            {proxyStatus().running
+                              ? t("sidebar.proxyRunning")
+                              : t("sidebar.proxyStopped")}
+                          </p>
+                          <p class="text-xs text-gray-500">
+                            {proxyStatus().endpoint}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-          {/* === ZONE 1: Onboarding (shows until setup complete) === */}
-          <OnboardingChecklist
-            firstDisconnectedProvider={disconnectedProviders()[0]?.provider}
-            hasAgent={hasConfiguredAgent()}
-            hasProvider={hasAnyProvider()}
-            isComplete={isSetupComplete()}
-            isToggling={toggling()}
-            onConnectProvider={handleConnect}
-            onNavigateSettings={() => setCurrentPage("settings")}
-            onToggleProxy={toggleProxy}
-            proxyRunning={proxyStatus().running}
-          />
+                <div class="space-y-4">
+                  <div class="rounded-[28px] border border-orange-100 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                      Workspace summary
+                    </p>
+                    <h2 class="mt-2 text-lg font-semibold text-gray-900">
+                      Operational snapshot
+                    </h2>
+                    <p class="mt-2 text-sm leading-6 text-gray-500">
+                      Review usage, provider readiness, and route confidence
+                      before diving into deeper tools.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-          {/* === ZONE 2: Value Snapshot (KPIs) - 3-card layout matching Analytics === */}
-          <Show when={history().requests.length > 0 || (stats() && stats()!.totalRequests > 0)}>
-            <div class="grid grid-cols-3 gap-3">
-              <KpiTile
-                icon="bolt"
-                label={t("dashboard.kpi.totalRequests")}
-                onClick={() => setCurrentPage("analytics")}
-                subtext={t("dashboard.kpi.requestsToday", {
-                  count: stats()?.requestsToday || 0,
-                })}
-                value={formatTokens(stats()?.totalRequests || history().requests.length)}
-              />
-              <KpiTile
-                icon="check"
-                label={t("dashboard.kpi.successRate")}
-                onClick={() => setCurrentPage("analytics")}
-                subtext={t("dashboard.kpi.failedCount", {
-                  count: stats()?.failureCount || 0,
-                })}
-                value={`${stats() && stats()!.totalRequests > 0 ? Math.min(100, Math.round((stats()!.successCount / stats()!.totalRequests) * 100)) : 100}%`}
-              />
-              <KpiTile
-                icon="dollar"
-                label={t("dashboard.kpi.estimatedCost")}
-                onClick={() => setCurrentPage("analytics")}
-                subtext={t("dashboard.kpi.tokensCount", {
-                  count: formatTokens(stats()?.totalTokens || 0),
-                })}
-                value={formatCost(estimatedCost())}
-              />
+              <Show
+                when={
+                  history().requests.length > 0 ||
+                  (stats() && stats()!.totalRequests > 0)
+                }
+              >
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <KpiTile
+                    icon="bolt"
+                    label={t("dashboard.kpi.totalRequests")}
+                    onClick={() => setCurrentPage("analytics")}
+                    subtext={t("dashboard.kpi.requestsToday", {
+                      count: stats()?.requestsToday || 0,
+                    })}
+                    value={formatTokens(
+                      stats()?.totalRequests || history().requests.length,
+                    )}
+                  />
+                  <KpiTile
+                    icon="check"
+                    label={t("dashboard.kpi.successRate")}
+                    onClick={() => setCurrentPage("analytics")}
+                    subtext={t("dashboard.kpi.failedCount", {
+                      count: stats()?.failureCount || 0,
+                    })}
+                    value={`${stats() && stats()!.totalRequests > 0 ? Math.min(100, Math.round((stats()!.successCount / stats()!.totalRequests) * 100)) : 100}%`}
+                  />
+                  <KpiTile
+                    icon="dollar"
+                    label={t("dashboard.kpi.estimatedCost")}
+                    onClick={() => setCurrentPage("analytics")}
+                    subtext={t("dashboard.kpi.tokensCount", {
+                      count: formatTokens(stats()?.totalTokens || 0),
+                    })}
+                    value={formatCost(estimatedCost())}
+                  />
+                </div>
+              </Show>
+
+              <div class="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
+                <div class="space-y-6">
+                  <ProviderSection
+                    authStatus={authStatus() as Record<Provider, number>}
+                    connected={connectedProviders().map((p) => ({
+                      id: p.provider,
+                      logo: p.logo,
+                      name: p.name,
+                    }))}
+                    connectingProvider={connecting()}
+                    deviceCodeProviders={deviceCodeProviders}
+                    disconnected={disconnectedProviders().map((p) => ({
+                      id: p.provider,
+                      logo: p.logo,
+                      name: p.name,
+                    }))}
+                    onConnect={handleConnect}
+                    onDeviceCodeConnect={handleDeviceCodeConnect}
+                    onDisconnect={handleDisconnect}
+                    proxyRunning={proxyStatus().running}
+                    recentlyConnected={recentlyConnected()}
+                  />
+
+                  <div class="grid gap-6 xl:grid-cols-2">
+                    <QuotaWidget authStatus={authStatus()} />
+                    <CodexQuotaWidget authStatus={authStatus()} />
+                    <ClaudeQuotaWidget />
+                    <KiroQuotaWidget />
+                  </div>
+                </div>
+
+                <div class="space-y-6">
+                  <CopilotQuotaWidget />
+                  <CopilotCard
+                    config={config().copilot}
+                    onConfigChange={handleCopilotConfigChange}
+                    proxyRunning={proxyStatus().running}
+                  />
+                  <div class="rounded-[28px] border border-orange-100 bg-white p-5 shadow-sm">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
+                      Access endpoint
+                    </p>
+                    <div class="mt-4">
+                      <ApiEndpoint
+                        endpoint={proxyStatus().endpoint}
+                        running={proxyStatus().running}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </Show>
-
-          {/* === ZONE 3: Providers (Unified Card) === */}
-          <ProviderSection
-            authStatus={authStatus() as Record<Provider, number>}
-            connected={connectedProviders().map((p) => ({
-              id: p.provider,
-              logo: p.logo,
-              name: p.name,
-            }))}
-            connectingProvider={connecting()}
-            deviceCodeProviders={deviceCodeProviders}
-            disconnected={disconnectedProviders().map((p) => ({
-              id: p.provider,
-              logo: p.logo,
-              name: p.name,
-            }))}
-            onConnect={handleConnect}
-            onDeviceCodeConnect={handleDeviceCodeConnect}
-            onDisconnect={handleDisconnect}
-            proxyRunning={proxyStatus().running}
-            recentlyConnected={recentlyConnected()}
-          />
-
-          {/* === ZONE 3.5: Antigravity Quota === */}
-          <QuotaWidget authStatus={authStatus()} />
-
-          {/* === ZONE 3.5b: OpenAI/Codex Quota === */}
-          <CodexQuotaWidget authStatus={authStatus()} />
-
-          {/* === ZONE 3.5c: Claude Quota === */}
-          <ClaudeQuotaWidget />
-
-          {/* === ZONE 3.5e: Kiro Quota === */}
-          <KiroQuotaWidget />
-
-          {/* === ZONE 3.5d: GitHub Copilot Quota === */}
-          <CopilotQuotaWidget />
-
-          {/* === ZONE 3.6: GitHub Copilot Config === */}
-          <CopilotCard
-            config={config().copilot}
-            onConfigChange={handleCopilotConfigChange}
-            proxyRunning={proxyStatus().running}
-          />
-
-          {/* === ZONE 4: API Endpoint === */}
-          <ApiEndpoint endpoint={proxyStatus().endpoint} running={proxyStatus().running} />
+          </div>
 
           {/* Config Modal */}
           <Show when={configResult()}>
@@ -889,7 +1067,12 @@ export function DashboardPage() {
                       class="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                       onClick={() => setConfigResult(null)}
                     >
-                      <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        class="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           d="M6 18L18 6M6 6l12 12"
                           stroke-linecap="round"
@@ -929,7 +1112,10 @@ export function DashboardPage() {
 
                     {/* Models configured - grouped by provider */}
                     <Show
-                      when={configResult()?.models && (configResult()?.models?.length ?? 0) > 0}
+                      when={
+                        configResult()?.models &&
+                        (configResult()?.models?.length ?? 0) > 0
+                      }
                     >
                       <div class="space-y-2">
                         <div class="flex items-center justify-between">
@@ -937,11 +1123,16 @@ export function DashboardPage() {
                             {t("dashboard.configModal.modelsConfigured")}
                           </span>
                           <span class="text-xs text-gray-500 dark:text-gray-400">
-                            {configResult()?.models?.length ?? 0} {t("dashboard.configModal.total")}
+                            {configResult()?.models?.length ?? 0}{" "}
+                            {t("dashboard.configModal.total")}
                           </span>
                         </div>
                         <div class="max-h-48 space-y-3 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/50">
-                          <For each={groupModelsByProvider(configResult()?.models ?? [])}>
+                          <For
+                            each={groupModelsByProvider(
+                              configResult()?.models ?? [],
+                            )}
+                          >
                             {(group) => (
                               <div>
                                 <div class="mb-1.5 flex items-center gap-2">
@@ -950,7 +1141,9 @@ export function DashboardPage() {
                                   >
                                     {group.provider}
                                   </span>
-                                  <span class="text-xs text-gray-400">({group.models.length})</span>
+                                  <span class="text-xs text-gray-400">
+                                    ({group.models.length})
+                                  </span>
                                 </div>
                                 <div class="flex flex-wrap gap-1">
                                   <For each={group.models}>
@@ -982,7 +1175,9 @@ export function DashboardPage() {
                           size="sm"
                           variant="secondary"
                         >
-                          {t("agentSetup.configModal.addToShellProfileAutomatically")}
+                          {t(
+                            "agentSetup.configModal.addToShellProfileAutomatically",
+                          )}
                         </Button>
                       </div>
                     </Show>
@@ -995,7 +1190,10 @@ export function DashboardPage() {
                   </div>
 
                   <div class="mt-6 flex justify-end">
-                    <Button onClick={() => setConfigResult(null)} variant="primary">
+                    <Button
+                      onClick={() => setConfigResult(null)}
+                      variant="primary"
+                    >
                       {t("agentSetup.configModal.done")}
                     </Button>
                   </div>
@@ -1015,7 +1213,9 @@ export function DashboardPage() {
         onStartOAuth={handleStartOAuth}
         onSubmitCode={handleSubmitCode}
         provider={oauthModalProvider()}
-        providerName={oauthModalProvider() ? getProviderName(oauthModalProvider()!) : ""}
+        providerName={
+          oauthModalProvider() ? getProviderName(oauthModalProvider()!) : ""
+        }
         showManualInput={showManualCodeInput()}
       />
 
@@ -1033,7 +1233,9 @@ export function DashboardPage() {
           setAuthStatus(newAuth);
         }}
         provider={deviceCodeProvider()}
-        providerName={deviceCodeProvider() ? getProviderName(deviceCodeProvider()!) : ""}
+        providerName={
+          deviceCodeProvider() ? getProviderName(deviceCodeProvider()!) : ""
+        }
       />
     </div>
   );
