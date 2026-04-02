@@ -34,9 +34,9 @@ export function ApiKeysPage() {
   const [showAddForm, setShowAddForm] = createSignal(false);
 
   return (
-    <div class="flex min-h-screen flex-col bg-white dark:bg-gray-900">
+    <div class="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header class="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-6 sm:py-4">
+      <header class="sticky top-0 z-10 border-b border-orange-100 bg-background-light px-4 py-3 dark:border-[#3a2c23] dark:bg-background-dark sm:px-6 sm:py-4">
         <div class="flex items-center gap-2 sm:gap-3">
           <Button onClick={() => setCurrentPage("settings")} size="sm" variant="ghost">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,14 +105,14 @@ export function ApiKeysPage() {
       <main class="flex flex-1 flex-col overflow-y-auto p-4 sm:p-6">
         <div class="mx-auto max-w-2xl space-y-4 sm:space-y-6">
           {/* Tabs */}
-          <div class="flex gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-800/50">
+          <div class="flex gap-1 rounded-xl border border-orange-100 bg-orange-50 p-1 dark:border-[#3a2c23] dark:bg-[#2b211a]">
             <For each={TABS}>
               {(tab) => (
                 <button
                   class={`flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all ${
                     activeTab() === tab.id
-                      ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100"
-                      : "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                      ? "bg-white text-gray-900 shadow-sm dark:bg-[#33271f] dark:text-gray-100"
+                      : "text-gray-600 hover:text-brand-600 dark:text-gray-400 dark:hover:text-orange-200"
                   }`}
                   onClick={() => {
                     setActiveTab(tab.id);

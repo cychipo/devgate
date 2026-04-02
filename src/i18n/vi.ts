@@ -207,7 +207,7 @@ export const vi = {
     },
   },
   app: {
-    loading: "Đang tải ProxyPal...",
+    loading: "Đang tải DevGate...",
   },
   authFiles: {
     actions: {
@@ -570,7 +570,7 @@ export const vi = {
   },
   settings: {
     autoStartProxy: {
-      description: "Tự động khởi động proxy khi mở ProxyPal",
+      description: "Tự động khởi động proxy khi mở DevGate",
       label: "Tự động khởi động proxy",
     },
     closeToTray: {
@@ -587,7 +587,7 @@ export const vi = {
         important: "Quan trọng:",
         note: "Lưu ý:",
         noteText:
-          'Định tuyến cổng được cấu hình trong bảng điều khiển Cloudflare, không phải trong ProxyPal. Trường "Local Port" ở trên chỉ để tham khảo.',
+          'Định tuyến cổng được cấu hình trong bảng điều khiển Cloudflare, không phải trong DevGate. Trường "Local Port" ở trên chỉ để tham khảo.',
         publicHostname: "Public Hostname",
       },
     },
@@ -600,7 +600,7 @@ export const vi = {
       checkSystem: "Kiểm tra hệ thống",
       copilotApiLabel: "copilot-api:",
       description:
-        "ProxyPal tự động phát hiện và sử dụng copilot-api để tích hợp GitHub Copilot. Không cần cấu hình thủ công - hoạt động tự động.",
+        "DevGate tự động phát hiện và sử dụng copilot-api để tích hợp GitHub Copilot. Không cần cấu hình thủ công - hoạt động tự động.",
       detecting: "Đang phát hiện...",
       downloadHint:
         "copilot-api sẽ được tự động tải về qua npx khi sử dụng lần đầu. Đây là quá trình một lần và cần kết nối internet.",
@@ -624,7 +624,7 @@ export const vi = {
       zhCN: "Tiếng Trung (Giản thể)",
     },
     launchAtLogin: {
-      description: "Tự động khởi động ProxyPal khi đăng nhập",
+      description: "Tự động khởi động DevGate khi đăng nhập",
       label: "Khởi động cùng hệ thống",
     },
     level: {
@@ -701,7 +701,7 @@ export const vi = {
         "Cấu hình ngân sách thinking/reasoning token cho các model Antigravity Claude (claude-sonnet-4-5-thinking, claude-opus-4-5-thinking). Áp dụng cho cả OpenCode và AmpCode CLI agents.",
       geminiInjection: {
         description:
-          "Khi bật, ProxyPal sẽ chèn cấu hình thinking cho các model Gemini 3. Tắt nếu bạn muốn tự kiểm soát thinking_config trong yêu cầu.",
+          "Khi bật, DevGate sẽ chèn cấu hình thinking cho các model Gemini 3. Tắt nếu bạn muốn tự kiểm soát thinking_config trong yêu cầu.",
         label: "Chèn cấu hình Thinking Gemini",
       },
       title: "Ngân sách Thinking (Model Antigravity Claude)",
@@ -807,7 +807,7 @@ export const vi = {
           title: "Chọn API Provider",
         },
         setApiKey: {
-          content: "Nhập chuỗi bất kỳ (vd: 'proxypal')",
+          content: "Nhập chuỗi bất kỳ (vd: 'devgate')",
           title: "Đặt API Key",
         },
         setBaseUrl: { title: "Đặt Base URL" },
@@ -829,12 +829,12 @@ export const vi = {
           title: "Mở Cài đặt",
         },
         selectModel: {
-          content: "Chọn model bất kỳ - ProxyPal sẽ định tuyến đến nhà cung cấp đã kết nối",
+          content: "Chọn model bất kỳ - DevGate sẽ định tuyến đến nhà cung cấp đã kết nối",
           title: "Chọn Model",
         },
         setApiBaseUrl: { title: "Đặt API Base URL" },
         setApiKey: {
-          content: "Nhập chuỗi bất kỳ (vd: 'proxypal') - proxy sẽ xử lý xác thực",
+          content: "Nhập chuỗi bất kỳ (vd: 'devgate') - proxy sẽ xử lý xác thực",
           title: "Đặt API Key",
         },
       },
@@ -849,7 +849,7 @@ export const vi = {
       configureYourTools: "Cấu hình công cụ",
       detectingInstalledTools: "Đang phát hiện công cụ đã cài đặt...",
       foundTools: "Tìm thấy {{count}} công cụ.",
-      setUpAiCodingTools: "Thiết lập công cụ lập trình AI để sử dụng ProxyPal.",
+      setUpAiCodingTools: "Thiết lập công cụ lập trình AI để sử dụng DevGate.",
       setupTools: "Thiết lập công cụ",
     },
     chooseToolFromList: "Chọn công cụ lập trình AI từ danh sách để xem hướng dẫn thiết lập",
@@ -862,10 +862,10 @@ export const vi = {
     manualSetup: "Thiết lập thủ công",
     notDetected: "Không phát hiện",
     otherTools: "Công cụ khác",
-    proxypalEndpoint: "ProxyPal Endpoint",
+    devgateEndpoint: "DevGate Endpoint",
     selectTool: "Chọn công cụ",
     setupSteps: "Các bước thiết lập",
-    subtitle: "Cấu hình công cụ lập trình AI để sử dụng ProxyPal",
+    subtitle: "Cấu hình công cụ lập trình AI để sử dụng DevGate",
     title: "Thiết lập công cụ",
     toasts: {
       continueConfiguredConfigSaved: "Continue đã cấu hình! Config đã lưu tại {{path}}",

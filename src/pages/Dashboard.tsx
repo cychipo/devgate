@@ -123,7 +123,7 @@ function KpiTile(props: {
 
   return (
     <button
-      class={`rounded-xl border border-blue-100 bg-blue-50 p-3 text-left text-blue-700 transition-all hover:scale-[1.02] hover:shadow-md dark:border-blue-800/50 dark:bg-blue-900/20 dark:text-blue-300 ${props.onClick ? "cursor-pointer" : "cursor-default"}`}
+      class={`rounded-xl border border-orange-100 bg-orange-50 p-3 text-left text-[#9a4a12] transition-all hover:scale-[1.02] hover:shadow-md dark:border-orange-900/40 dark:bg-[#2b211a] dark:text-orange-200 ${props.onClick ? "cursor-pointer" : "cursor-default"}`}
       onClick={props.onClick}
     >
       <div class="mb-1 flex items-center gap-1.5 opacity-80">
@@ -728,7 +728,7 @@ export function DashboardPage() {
   const getProviderColor = (provider: string): string => {
     const colors: Record<string, string> = {
       Claude: "text-orange-600 dark:text-orange-400",
-      Gemini: "text-blue-600 dark:text-blue-400",
+      Gemini: "text-brand-600 dark:text-brand-300",
       iFlow: "text-cyan-600 dark:text-cyan-400",
       "OpenAI/Codex": "text-green-600 dark:text-green-400",
       Qwen: "text-purple-600 dark:text-purple-400",
@@ -738,16 +738,16 @@ export function DashboardPage() {
   };
 
   return (
-    <div class="flex min-h-screen flex-col bg-white dark:bg-gray-900">
+    <div class="flex min-h-screen flex-col bg-background-light dark:bg-background-dark">
       {/* Header - Simplified (navigation handled by sidebar) */}
-      <header class="sticky top-0 z-10 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-6">
+      <header class="sticky top-0 z-10 border-b border-orange-100 bg-background-light px-4 py-3 dark:border-[#3a2c23] dark:bg-background-dark sm:px-6">
         <div class="mx-auto flex max-w-3xl items-center justify-between">
           <h1 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
             {t("sidebar.dashboard")}
           </h1>
           <div class="flex items-center gap-3">
             <button
-              class="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              class="flex items-center gap-2 rounded-lg border border-orange-100 bg-white px-3 py-1.5 text-sm text-gray-500 transition-colors hover:bg-orange-50 hover:text-brand-600 dark:border-[#3a2c23] dark:bg-[#2b211a] dark:text-gray-400 dark:hover:bg-[#33271f] dark:hover:text-brand-300"
               onClick={openCommandPalette}
               title={t("dashboard.commandPalette")}
             >
@@ -987,8 +987,8 @@ export function DashboardPage() {
                       </div>
                     </Show>
 
-                    <div class="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-green-800 dark:bg-blue-900/20">
-                      <p class="text-sm text-blue-700 dark:text-blue-300">
+                    <div class="rounded-lg border border-orange-200 bg-orange-50 p-3 dark:border-orange-900/40 dark:bg-[#2b211a]">
+                      <p class="text-sm text-[#9a4a12] dark:text-orange-200">
                         {configResult()!.result.instructions}
                       </p>
                     </div>

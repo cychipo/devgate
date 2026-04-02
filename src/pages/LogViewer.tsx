@@ -16,7 +16,7 @@ import { toastStore } from "../stores/toast";
 const levelColors: Record<string, string> = {
   DEBUG: "text-gray-500 bg-gray-500/10",
   ERROR: "text-red-500 bg-red-500/10",
-  INFO: "text-blue-500 bg-blue-500/10",
+  INFO: "text-brand-600 bg-orange-100 dark:text-brand-300 dark:bg-[#2b211a]",
   TRACE: "text-gray-400 bg-gray-400/10",
   WARN: "text-yellow-500 bg-yellow-500/10",
 };
@@ -235,7 +235,7 @@ export function LogViewerPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `proxypal-logs-${new Date().toISOString().split("T")[0]}.txt`;
+    a.download = `devgate-logs-${new Date().toISOString().split("T")[0]}.txt`;
     a.click();
     URL.revokeObjectURL(url);
     toastStore.success(t("logs.toasts.logsDownloaded"));
@@ -319,7 +319,7 @@ export function LogViewerPage() {
             <button
               class={`rounded-lg p-2 transition-colors ${
                 autoRefresh()
-                  ? "bg-brand-500/20 text-brand-500"
+                  ? "bg-orange-100 text-brand-600 dark:bg-[#2b211a] dark:text-brand-300"
                   : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200"
               }`}
               onClick={() => setAutoRefresh(!autoRefresh())}
@@ -459,7 +459,7 @@ export function LogViewerPage() {
               {/* Search */}
               <div class="max-w-xs flex-1">
                 <input
-                  class="transition-smooth w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-800"
+                  class="transition-smooth w-full rounded-lg border border-orange-100 bg-white px-3 py-1.5 text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-[#3a2c23] dark:bg-[#2b211a]"
                   onInput={(e) => setSearch(e.currentTarget.value)}
                   placeholder={t("logs.searchPlaceholder")}
                   type="text"
@@ -524,7 +524,7 @@ export function LogViewerPage() {
                     <Show when={hasMoreLogs()}>
                       <div class="py-2 text-center">
                         <button
-                          class="text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300"
+                          class="text-xs font-medium text-brand-500 hover:text-brand-600 dark:text-brand-300 dark:hover:text-orange-200"
                           onClick={loadMoreLogs}
                         >
                           {t("logs.loadOlderPrefix")}{" "}
@@ -587,7 +587,7 @@ export function LogViewerPage() {
                         <button
                           class={`w-full truncate rounded px-2 py-1.5 text-left font-mono text-xs transition-colors ${
                             selectedErrorLog() === file
-                              ? "bg-brand-500/20 text-brand-600 dark:text-brand-400"
+                              ? "bg-orange-100 text-brand-600 dark:bg-[#2b211a] dark:text-brand-300"
                               : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
                           }`}
                           onClick={() => handleSelectErrorLog(file)}

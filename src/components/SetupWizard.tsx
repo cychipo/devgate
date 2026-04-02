@@ -335,7 +335,7 @@ export function SetupWizard(props: SetupWizardProps) {
               <div class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
                 <div class="mb-2 flex items-center justify-between">
                   <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    {t("setupWizard.proxypalEndpoint")}
+                    {t("setupWizard.devgateEndpoint")}
                   </span>
                   <button
                     class="flex items-center gap-1 text-xs text-brand-600 hover:underline dark:text-brand-400"

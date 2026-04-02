@@ -14,7 +14,6 @@ import {
   setWebsocketAuth,
 } from "../../lib/tauri";
 import { appStore } from "../../stores/app";
-import { themeStore } from "../../stores/theme";
 import { toastStore } from "../../stores/toast";
 import { Button, Switch } from "../ui";
 
@@ -1122,17 +1121,9 @@ export function AdvancedSettings(props: AdvancedSettingsProps) {
 
         <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-center dark:border-gray-700 dark:bg-gray-800/50">
           <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl">
-            <img
-              alt="ProxyPal Logo"
-              class="h-12 w-12 rounded-xl object-contain"
-              src={
-                themeStore.resolvedTheme() === "dark"
-                  ? "/proxypal-white.png"
-                  : "/proxypal-black.png"
-              }
-            />
+            <img alt="DevGate Logo" class="h-12 w-12 rounded-xl object-contain" src="/proxypal-black.png" />
           </div>
-          <h3 class="font-bold text-gray-900 dark:text-gray-100">ProxyPal</h3>
+          <h3 class="font-bold text-gray-900 dark:text-gray-100">DevGate</h3>
           <p class="text-sm text-gray-500 dark:text-gray-400">Version {props.appVersion()}</p>
           <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
             Built with love by OpenCodeKit

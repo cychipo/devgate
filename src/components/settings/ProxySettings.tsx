@@ -215,11 +215,11 @@ export function ProxySettings(props: ProxySettingsProps) {
             <input
               class="transition-smooth block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 pr-10 font-mono text-sm focus:border-transparent focus:ring-2 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-900"
               onInput={(e) =>
-                local.handleConfigChange("proxyApiKey", e.currentTarget.value || "proxypal-local")
+                local.handleConfigChange("proxyApiKey", e.currentTarget.value || "devgate-local")
               }
-              placeholder="proxypal-local"
+              placeholder="devgate-local"
               type={showProxyApiKey() ? "text" : "password"}
-              value={local.config().proxyApiKey || "proxypal-local"}
+              value={local.config().proxyApiKey || "devgate-local"}
             />
             <button
               class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -270,12 +270,12 @@ export function ProxySettings(props: ProxySettingsProps) {
               onInput={(e) =>
                 local.handleConfigChange(
                   "managementKey",
-                  e.currentTarget.value || "proxypal-mgmt-key",
+                  e.currentTarget.value || "devgate-mgmt-key",
                 )
               }
-              placeholder="proxypal-mgmt-key"
+              placeholder="devgate-mgmt-key"
               type={showManagementKey() ? "text" : "password"}
-              value={local.config().managementKey || "proxypal-mgmt-key"}
+              value={local.config().managementKey || "devgate-mgmt-key"}
             />
             <button
               class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"

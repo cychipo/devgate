@@ -206,7 +206,7 @@ export const zhCN = {
     },
   },
   app: {
-    loading: "正在加载 ProxyPal...",
+    loading: "正在加载 DevGate...",
   },
   authFiles: {
     actions: {
@@ -564,7 +564,7 @@ export const zhCN = {
   },
   settings: {
     autoStartProxy: {
-      description: "启动 ProxyPal 时自动启动代理服务",
+      description: "启动 DevGate 时自动启动代理服务",
       label: "自动启动代理",
     },
     closeToTray: {
@@ -581,7 +581,7 @@ export const zhCN = {
         important: "重要：",
         note: "注意：",
         noteText:
-          '端口路由在 Cloudflare 控制台中配置，而不是在 ProxyPal 内配置。上方的 "Local Port" 字段仅用于参考。',
+          '端口路由在 Cloudflare 控制台中配置，而不是在 DevGate 内配置。上方的 "Local Port" 字段仅用于参考。',
         publicHostname: "Public Hostname",
       },
     },
@@ -594,7 +594,7 @@ export const zhCN = {
       checkSystem: "检查系统",
       copilotApiLabel: "copilot-api:",
       description:
-        "ProxyPal 会自动检测并使用 copilot-api 进行 GitHub Copilot 集成。无需手动配置，可自动工作。",
+        "DevGate 会自动检测并使用 copilot-api 进行 GitHub Copilot 集成。无需手动配置，可自动工作。",
       detecting: "检测中...",
       downloadHint:
         "copilot-api 会在首次使用时通过 npx 自动下载。这是一次性过程，并且需要网络连接。",
@@ -618,7 +618,7 @@ export const zhCN = {
       zhCN: "简体中文",
     },
     launchAtLogin: {
-      description: "登录系统时自动启动 ProxyPal",
+      description: "登录系统时自动启动 DevGate",
       label: "开机启动",
     },
     level: {
@@ -693,7 +693,7 @@ export const zhCN = {
         "配置 Antigravity Claude 模型（claude-sonnet-4-5-thinking、claude-opus-4-5-thinking）的思考/推理 token 预算。该配置同时适用于 OpenCode 和 AmpCode CLI agents。",
       geminiInjection: {
         description:
-          "开启后，ProxyPal 会为 Gemini 3 模型注入 thinking 配置。若你希望自行在请求中控制 thinking_config，请关闭此项。",
+          "开启后，DevGate 会为 Gemini 3 模型注入 thinking 配置。若你希望自行在请求中控制 thinking_config，请关闭此项。",
         label: "Gemini 思考配置注入",
       },
       title: "思考预算（Antigravity Claude 模型）",
@@ -798,7 +798,7 @@ export const zhCN = {
           title: "选择 API 提供商",
         },
         setApiKey: {
-          content: "输入任意字符串（例如 'proxypal'）",
+          content: "输入任意字符串（例如 'devgate'）",
           title: "设置 API 密钥",
         },
         setBaseUrl: { title: "设置 Base URL" },
@@ -820,12 +820,12 @@ export const zhCN = {
           title: "打开设置",
         },
         selectModel: {
-          content: "可选择任意模型 - ProxyPal 会路由到你已连接的提供商",
+          content: "可选择任意模型 - DevGate 会路由到你已连接的提供商",
           title: "选择模型",
         },
         setApiBaseUrl: { title: "设置 API Base URL" },
         setApiKey: {
-          content: "输入任意字符串（例如 'proxypal'）- 代理会处理认证",
+          content: "输入任意字符串（例如 'devgate'）- 代理会处理认证",
           title: "设置 API 密钥",
         },
       },
@@ -840,7 +840,7 @@ export const zhCN = {
       configureYourTools: "配置你的工具",
       detectingInstalledTools: "正在检测已安装工具...",
       foundTools: "发现 {{count}} 个工具。",
-      setUpAiCodingTools: "配置你的 AI 编码工具以使用 ProxyPal。",
+      setUpAiCodingTools: "配置你的 AI 编码工具以使用 DevGate。",
       setupTools: "配置工具",
     },
     chooseToolFromList: "从列表中选择一个 AI 编码工具以查看配置说明",
@@ -853,10 +853,10 @@ export const zhCN = {
     manualSetup: "手动配置",
     notDetected: "未检测到",
     otherTools: "其他工具",
-    proxypalEndpoint: "ProxyPal 端点",
+    devgateEndpoint: "DevGate 端点",
     selectTool: "选择一个工具",
     setupSteps: "配置步骤",
-    subtitle: "将你的 AI 编码工具配置为使用 ProxyPal",
+    subtitle: "将你的 AI 编码工具配置为使用 DevGate",
     title: "配置你的工具",
     toasts: {
       continueConfiguredConfigSaved: "Continue 已配置！配置已保存到 {{path}}",

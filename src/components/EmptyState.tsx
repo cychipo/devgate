@@ -69,7 +69,7 @@ export function NoProvidersEmptyState(props: { onConnect: () => void }) {
         label: "Connect your first provider",
         onClick: props.onConnect,
       }}
-      description="Connect your AI accounts to start using ProxyPal with your favorite coding tools."
+      description="Connect your AI accounts to start using DevGate with your favorite coding tools."
       icon={
         <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -167,7 +167,7 @@ export function GettingStartedEmptyState(props: {
           <div class="min-w-0 flex-1">
             <h3 class="mb-1 font-semibold text-green-800 dark:text-green-200">You're all set!</h3>
             <p class="text-sm text-green-700 dark:text-green-300">
-              ProxyPal is configured and ready. Start using your AI tools - all requests will be
+              DevGate is configured and ready. Start using your AI tools - all requests will be
               routed through your connected accounts.
             </p>
           </div>
@@ -216,7 +216,7 @@ export function GettingStartedEmptyState(props: {
         <div class="min-w-0 flex-1">
           <div class="mb-1 flex items-center justify-between">
             <h3 class="font-semibold text-gray-900 dark:text-gray-100">
-              {completedSteps() === 0 ? "Welcome to ProxyPal!" : "Almost there!"}
+              {completedSteps() === 0 ? "Welcome to DevGate!" : "Almost there!"}
             </h3>
             <span class="text-xs text-gray-500 dark:text-gray-400">
               {completedSteps()}/3 complete

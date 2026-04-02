@@ -7,11 +7,13 @@ use crate::types::{AuthStatus, ProviderTestResult};
 // Helper function to refresh Antigravity OAuth token
 async fn refresh_antigravity_token(client: &reqwest::Client, refresh_token: &str) -> Result<String, String> {
     let token_url = "https://oauth2.googleapis.com/token";
-    
-    // Antigravity OAuth credentials injected at build time (see .env.example)
-    let client_id = env!("ANTIGRAVITY_CLIENT_ID", "Set ANTIGRAVITY_CLIENT_ID env var (see .env.example)");
-    let client_secret = env!("ANTIGRAVITY_CLIENT_SECRET", "Set ANTIGRAVITY_CLIENT_SECRET env var (see .env.example)");
-    
+
+    // Antigravity OAuth credentials are injected at build time when available.
+    let client_id = option_env!("ANTIGRAVITY_CLIENT_ID")
+        .ok_or_else(|| "Missing ANTIGRAVITY_CLIENT_ID env var (see .env.example)".to_string())?;
+    let client_secret = option_env!("ANTIGRAVITY_CLIENT_SECRET")
+        .ok_or_else(|| "Missing ANTIGRAVITY_CLIENT_SECRET env var (see .env.example)".to_string())?;
+
     let params = [
         ("client_id", client_id),
         ("client_secret", client_secret),
